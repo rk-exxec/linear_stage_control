@@ -1,6 +1,7 @@
 import serial
 import time
 from decimal import Decimal
+import threading
 import signal
 
 class MotorNotReferencedError(Exception):
@@ -26,6 +27,7 @@ class LT(object):
         self.__reference_changed = False
         self.__status = 1
         self.__positioning_error = 0
+        self.__wait_mov_fin_thread = threading.Thread(target=wait_movement)
         self.setup_defaults()
         if not self.is_referenced():
             print('Referencing is required!')
@@ -231,6 +233,7 @@ class LT(object):
             self.command('#1d1')
         else:
             self.command('#1d0')
+        self.command('#1p1')
         self.command('#1o' + str(speed))
         self.command('#1s' + str(steps))
         self.command('#1A')
@@ -278,6 +281,20 @@ class LT(object):
         steps = self.mm_to_steps(position_mm)
         speed = self.mm_to_steps(speed)
         self.move_absolute(steps, speed)
+
+    def move_inf_start(self, dest, speed=4000):
+        """ Starts stage movement wit continous speed. Needs to be stopped with stop()
+
+        :param dest: Movement direction, 0 towards, 1 away from motor
+        :param speed: Speed in steps/s
+        """
+        self.command('#1d' + str(int(dest)))
+        self.command('#1p5')
+        self.command('#1o' + str(int(speed)))
+        self.command('#1A')
+        # non blocking movement surveilance
+        self.__wait_mov_fin_thread.start()
+        
 
     def get_position(self):
         """Return absolute position in steps.
