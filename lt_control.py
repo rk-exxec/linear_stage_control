@@ -27,7 +27,8 @@ class LT(object):
         self.__reference_changed = False
         self.__status = 1
         self.__positioning_error = 0
-        self.__wait_mov_fin_thread = threading.Thread(target=wait_movement)
+        self._killswitch_wait = True
+        self.__wait_mov_fin_thread = threading.Thread(target=self.wait_movement)
         self.setup_defaults()
         if not self.is_referenced():
             print('Referencing is required!')
@@ -107,12 +108,14 @@ class LT(object):
         .. seealso:: is_control_ready(), has_position_error()
         """
         #extract int value and mask only useful 4 bits
-        tmp = self.query('#1$')[-3:]
-        tmp = int(tmp)
-        self.__status = tmp & 0xF
-        #self.__status = int(self.query('#1$')[-3:]) & 0xF
-        self.__positioning_error = (self.__status & 0b0100) >> 2
-        return self.__status
+        tmp = self.query('#1$')
+        if tmp[-1] != '?':
+            tmp = int(tmp[-3:])
+            tmp = int(tmp)
+            self.__status = tmp & 0xF
+            #self.__status = int(self.query('#1$')[-3:]) & 0xF
+            self.__positioning_error = (self.__status & 0b0100) >> 2
+            return self.__status
 
     def is_control_ready(self):
         """
@@ -177,12 +180,12 @@ class LT(object):
         """
         Wait for movement ot finish.
         """
-        while not self.is_control_ready() and not self.has_positioning_error():
-            time.sleep(0.1)       
+        while not self._killswitch_wait and not self.is_control_ready() and not self.has_positioning_error():
+            time.sleep(0.1)
         if self.has_positioning_error():
             # in endschalter gelaufen
             # reset position
-            self.stop()
+            #self.stop()
             self.clear_positioning_error()
             print('Movement ended prematurely!')
 
@@ -191,6 +194,9 @@ class LT(object):
         Immediately stops the motor
         """
         self.command('#1S')
+        self._killswitch_wait = True
+        if self.__wait_mov_fin_thread.is_alive():
+            self.__wait_mov_fin_thread.join()
 
     def set_reference_point(self, reference):
         """
@@ -293,7 +299,8 @@ class LT(object):
         self.command('#1o' + str(int(speed)))
         self.command('#1A')
         # non blocking movement surveilance
-        self.__wait_mov_fin_thread.start()
+        self._killswitch_wait = False
+        #self.__wait_mov_fin_thread.start()
         
 
     def get_position(self):
