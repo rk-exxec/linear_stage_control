@@ -1,53 +1,126 @@
+#     lt_control is a program to control a single linear table via SMCI33-1
+#     Copyright (C) 2020  Raphael Kriegl
+
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+import functools
 import serial
 import time
 from decimal import Decimal
 import threading
 import signal
+import sys
+
+from serial.tools.list_ports_windows import comports
 
 class MotorNotReferencedError(Exception):
     def __init__(self):
         super().__init__('Motor not referenced! Please call do_referencing()!')
 
+#TODO CONTEXT DOCH für ganze klasse, da sonst sehr schell geöffnet und geschlossen wird
+
+
 class LT(object):
     
-    def __init__(self, portname, reference='near', com_timeout=1):
+    def __init__(self, portname='auto', reference='near', com_timeout=1):
         """
         Create a new motor control object.
 
-        :param portname: The Port for the serial connection (e.g. 'COM4' for Windows, '/dev/ttyS1' for Linux)
+        :param portname: The Port for the serial connection (e.g. 'COM4' for Windows, '/dev/ttyS1' for Linux) or 'auto' for automatic discovery
         :param reference: Which limit switch will be used for referencing the motor, far means away from motor, near means near, coordinates are positive away from reference
         :param com_timeout: Timeout in sek for serial port
         """
         signal.signal(signal.SIGINT, self.sig_handler)
         signal.signal(signal.SIGTERM, self.sig_handler)
-        self.__serial_port = serial.Serial(portname, 115200, timeout=com_timeout)
-        self.__debug = False
-        self.__substeps = 8 #does not do anything right now, for future
-        self.__reference_point = reference
-        self.__reference_changed = False
-        self.__status = 1
-        self.__positioning_error = 0
-        self._killswitch_wait = True
-        self.__wait_mov_fin_thread = threading.Thread(target=self.wait_movement)
-        self.setup_defaults()
-        if not self.is_referenced():
-            print('Referencing is required!')
+        self._serial_port = serial.Serial()
+        port = portname
+        if portname == 'auto':
+            try:
+                port = self.find_com_port()
+            except ConnectionError as ce:
+                port = portname
+        self._serial_port.port = port
+        self._serial_port.baudrate = 115200
+        self._serial_port.timeout = com_timeout
+        self._context_depth = 0
+        self._debug = False
+        self._substeps = 8 #does not do anything right now, for future
+        self._reference_point = reference
+        self._reference_changed = False
+        self._status = 1
+        self._positioning_error = 0
+        self._killswitch_wait = False
+        self._wait_mov_fin_thread = threading.Thread(target=self.wait_movement)
+        #self.setup_defaults()
+        # if not self.is_referenced():
+        #     print('Referencing is required!')
 
-    def __delete__(self, instance):
-        if self.__serial_port:
-            self.__serial_port.close()
+    def __enter__(self):
+        try:
+            if self._context_depth == 0:
+                self._serial_port.open()
+        except Exception as ex:
+            raise  
+        self._context_depth += 1
+        return self
 
-    def __del__(self):
-        if self.__serial_port:
-            self.__serial_port.close()
+    def __exit__(self, type, value, traceback):
+        self._context_depth -= 1
+        if self._context_depth == 0:
+            self._serial_port.close()
+
+    def ErrorOutsideContext(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if args[0]._context_depth == 0:
+                raise RuntimeError('Cannot use this Funtion outside of Context').with_traceback(None)
+            return func(*args, **kwargs)
+        return wrapper
+
+    @staticmethod
+    def find_com_port() -> str:
+        lst = comports()
+        for port in lst:
+            if port.manufacturer == 'Nanotec':
+                return port.device
+        else:
+            raise ConnectionError('No Nanotec device found!')
+
+    # def __delete__(self, instance):
+    #     if self._serial_port.is_open:
+    #         self._serial_port.close()
+
+    # def __del__(self):
+    #     if self._serial_port.is_open:
+    #         self._serial_port.close()
 
     def sig_handler(self, sig, fr):
         self.stop()
         print('Keyboard Interrupt: Motor stopped!')
 
-    def close(self):
-        self.__serial_port.close()
+    # def close(self):
+    #     self._serial_port.close()
 
+    def test_connection(self) -> bool:
+        try:
+            with self._serial_port:
+                self._serial_port.is_open
+            return True
+        except TimeoutError as toe:
+            return False
+
+    @ErrorOutsideContext
     def query(self, message):
         """
         Send a message to the controller with newline char and reads response.
@@ -57,32 +130,16 @@ class LT(object):
         :rtype: String
         """
         msg = message + '\r'
-        if self.__debug: print(message)
-        self.__serial_port.write(msg.encode())
-        ans = self.__serial_port.read_until(b'\r').decode('utf-8')
+        if self._debug: print(message)
+        #with self._serial_port:
+        self._serial_port.write(msg.encode())
+        ans = self._serial_port.read_until(b'\r').decode('utf-8')
         if len(ans) == 0:
             raise TimeoutError
         else:
-            if self.__debug: print(ans.strip())
+            if self._debug: print(ans.strip())
             return ans.strip()
 
-    def is_referenced(self):
-        """
-        Check whether the motor is referenced.
-
-        This is necessary after every loss of power to the controller
-        :returns: True if motor is referenced
-        :rtype: Boolean
-        """
-        ans = self.query('#1:is_referenced')
-        if ans[-1] == '1' and not self.__reference_changed:
-            return True
-        else:
-            return False
-
-    def setup_defaults(self):
-        self.command('#1g8') # microstepping, 8 microsteps per step
-    
     def command(self, message):
         """
         Send commands to controller. Check if write was successful.
@@ -99,6 +156,23 @@ class LT(object):
         else:
             return True
 
+    def is_referenced(self):
+        """
+        Check whether the motor is referenced.
+
+        This is necessary after every loss of power to the controller
+        :returns: True if motor is referenced
+        :rtype: Boolean
+        """
+        ans = self.query('#1:is_referenced')
+        if ans[-1] == '1' and not self._reference_changed:
+            return True
+        else:
+            return False
+
+    def setup_defaults(self):
+        self.command('#1g8') # microstepping, 8 microsteps per step
+
     def fetch_status(self):
         """
         Fetch status from controller, extract integer value, save positioning error and state to internal variable for later use.
@@ -112,10 +186,10 @@ class LT(object):
         if tmp[-1] != '?':
             tmp = int(tmp[-3:])
             tmp = int(tmp)
-            self.__status = tmp & 0xF
+            self._status = tmp & 0xF
             #self.__status = int(self.query('#1$')[-3:]) & 0xF
-            self.__positioning_error = (self.__status & 0b0100) >> 2
-            return self.__status
+            self._positioning_error = (self._status & 0b0100) >> 2
+            return self._status
 
     def is_control_ready(self):
         """
@@ -137,7 +211,7 @@ class LT(object):
         .. seealso:: clear_position_error
         """
         self.fetch_status()
-        if self.__positioning_error:
+        if self._positioning_error:
             return True
         else:
             return False
@@ -148,13 +222,25 @@ class LT(object):
 
         :param reset_postiton: False (default): Absolute position does not change, True: Set current absolute position to 0
         """
-        self.__positioning_error = 0
+        self._positioning_error = 0
         if reset_position:
             self.query('#1D0')
         else:
             ans=self.query('#1C')
             ans = ans[2:] # extract position
             self.query('#1D' + ans) # clear error and set position
+
+    def get_position(self):
+        """
+        Read the current position from the controller
+        :returns: the position as int
+        """
+        ans = self.query('#1C')
+        ans = ans[2:] # extract position
+        if not self._reference_point == 'far':
+            return ans + 50000
+        else:
+            return ans
 
     def steps_to_mm(self, steps):
         """
@@ -163,7 +249,7 @@ class LT(object):
         :param steps: The number of steps
         :returns: The distance in millimeters
         """
-        steps_per_turn = self.__substeps * 200
+        steps_per_turn = self._substeps * 200
         return (1.25/steps_per_turn) * steps
 
     def mm_to_steps(self, mm):
@@ -173,14 +259,14 @@ class LT(object):
         :param mm: The distance in millimeters
         :returns: The number of steps
         """
-        steps_per_turn = self.__substeps * 200
+        steps_per_turn = self._substeps * 200
         return int(round(Decimal((steps_per_turn/1.25) * mm)))
 
     def wait_movement(self):
         """
         Wait for movement ot finish.
         """
-        while not self._killswitch_wait and not self.is_control_ready() and not self.has_positioning_error():
+        while not self.is_control_ready() and not self.has_positioning_error():
             time.sleep(0.1)
         if self.has_positioning_error():
             # in endschalter gelaufen
@@ -194,9 +280,9 @@ class LT(object):
         Immediately stops the motor
         """
         self.command('#1S')
-        self._killswitch_wait = True
-        if self.__wait_mov_fin_thread.is_alive():
-            self.__wait_mov_fin_thread.join()
+        # self._killswitch_wait = True
+        # if self._wait_mov_fin_thread.is_alive():
+        #     self._wait_mov_fin_thread.join()
 
     def set_reference_point(self, reference):
         """
@@ -204,8 +290,8 @@ class LT(object):
 
         :param reference: Which limit switch will be used for referencing the motor, 'far' means away from motor, 'near' means near, coordinates are positive away from reference
         """
-        self.__reference_point = reference
-        self.__reference_changed = True
+        self._reference_point = reference
+        self._reference_changed = True
         print('Please reference motor again!')
 
     def do_referencing(self):
@@ -215,14 +301,14 @@ class LT(object):
         """
         self.command('#1p4')
         self.command('#1l5154') # endschalterverhalten auf r�ckw�rts vom schalter runterfahren
-        if self.__reference_point == 'near':
+        if self._reference_point == 'near':
             self.command('#1d1')
         else:
             self.command('#1d0')
         self.command('#1o4000')
         self.command('#1A')
         self.wait_movement()
-        self.__reference_changed = False
+        self._reference_changed = False
         
     def move_relative(self, steps, speed=4000):
         """Move the Stage relative to its current position.
@@ -235,7 +321,7 @@ class LT(object):
         if abs(steps) > 50000:
             print("Relative Movement: Too many steps!")
             return
-        if self.__reference_point == 'far':
+        if self._reference_point == 'far':
             self.command('#1d1')
         else:
             self.command('#1d0')
@@ -243,7 +329,7 @@ class LT(object):
         self.command('#1o' + str(speed))
         self.command('#1s' + str(steps))
         self.command('#1A')
-        self.wait_movement()
+       # self.wait_movement()
 
     def move_absolute(self, steps, speed=4000):
         """Move the Stage to absolute position, 0 is opposite of motor.
@@ -256,13 +342,13 @@ class LT(object):
         if abs(steps) > 50000:
             print('Absolute Movement: Too many steps!')
             return
-        if not self.__reference_point == 'far':
+        if not self._reference_point == 'far':
             steps = steps - 50000
         self.command('#1p2')
         self.command('#1o' + str(int(speed)))
         self.command('#1s' + str(int(steps)))
         self.command('#1A')
-        self.wait_movement()
+        #self.wait_movement()
 
     def move_relative_mm(self, distance_mm, speed=3):
         """Move the Stage relative to its current position.
@@ -302,14 +388,13 @@ class LT(object):
         self._killswitch_wait = False
         #self.__wait_mov_fin_thread.start()
         
-
     def get_position(self):
         """Return absolute position in steps.
 
         :returns: absolute position in steps
         """
         real_pos = int(self.query('#1C')[2:])
-        if self.__reference_point == 'far':
+        if self._reference_point == 'far':
             disp_pos = real_pos
         else:
             disp_pos = real_pos + 50000
