@@ -28,9 +28,6 @@ class MotorNotReferencedError(Exception):
     def __init__(self):
         super().__init__('Motor not referenced! Please call do_referencing()!')
 
-#TODO CONTEXT DOCH für ganze klasse, da sonst sehr schell geöffnet und geschlossen wird
-
-
 class LT(object):
     
     def __init__(self, portname='auto', reference='near', com_timeout=1):
@@ -135,7 +132,7 @@ class LT(object):
         self._serial_port.write(msg.encode())
         ans = self._serial_port.read_until(b'\r').decode('utf-8')
         if len(ans) == 0:
-            raise TimeoutError
+            raise TimeoutError('Port Timeout!')
         else:
             if self._debug: print(ans.strip())
             return ans.strip()
@@ -273,7 +270,7 @@ class LT(object):
             # reset position
             #self.stop()
             self.clear_positioning_error()
-            print('Movement ended prematurely!')
+            #print('Movement ended prematurely!')
 
     def stop(self):
         """
@@ -307,7 +304,7 @@ class LT(object):
             self.command('#1d0')
         self.command('#1o4000')
         self.command('#1A')
-        self.wait_movement()
+        #self.wait_movement()
         self._reference_changed = False
         
     def move_relative(self, steps, speed=4000):
