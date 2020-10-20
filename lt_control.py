@@ -41,13 +41,15 @@ class LT(object):
         signal.signal(signal.SIGINT, self.sig_handler)
         signal.signal(signal.SIGTERM, self.sig_handler)
         self._serial_port = serial.Serial()
-        port = portname
         if portname == 'auto':
             try:
-                port = self.find_com_port()
+                # FIXME dont cause exception when not found!
+                self._serial_port.port = self.find_com_port()
             except ConnectionError as ce:
-                port = portname
-        self._serial_port.port = port
+                print('Stepper driver not found!')
+                self._serial_port.port = None
+        else:
+            self._serial_port.port = portname
         self._serial_port.baudrate = 115200
         self._serial_port.timeout = com_timeout
         self._context_depth = 0
@@ -65,7 +67,7 @@ class LT(object):
 
     def __enter__(self):
         try:
-            if self._context_depth == 0:
+            if self._context_depth == 0 and self._serial_port.port is not None:
                 self._serial_port.open()
         except Exception as ex:
             raise  
@@ -170,6 +172,7 @@ class LT(object):
     def setup_defaults(self):
         self.command('#1g8') # microstepping, 8 microsteps per step
 
+
     def fetch_status(self):
         """
         Fetch status from controller, extract integer value, save positioning error and state to internal variable for later use.
@@ -184,7 +187,6 @@ class LT(object):
             tmp = int(tmp[-3:])
             tmp = int(tmp)
             self._status = tmp & 0xF
-            #self.__status = int(self.query('#1$')[-3:]) & 0xF
             self._positioning_error = (self._status & 0b0100) >> 2
             return self._status
 
@@ -239,6 +241,26 @@ class LT(object):
         else:
             return ans
 
+    def set_soft_ramp(self):
+        """
+        Sets the accel and decel ramp do be softer
+        """
+        with self:
+            self.command('#1:ramp_mode=+1') # sine ramp type
+            self.command('#1:decelquick=+3000000') # quick stop Hz/s
+            self.command('#1:accel=+10000') # accel Hz/s
+            self.command('#1:decel=+10000') # brake Hz/s
+
+    def set_quick_ramp(self):
+        """
+        Sets the accel and decel ramp do be abrupt
+        """
+        with self:
+            self.command('#1:ramp_mode=+0') # trapez ramp type
+            self.command('#1:decelquick=+3000000') # quick stop Hz/s
+            self.command('#1:accel=+50000') # accel Hz/s
+            self.command('#1:decel=+50000') # brake Hz/s
+
     def steps_to_mm(self, steps):
         """
         Converts the number of steps to distance in millimeters
@@ -263,7 +285,7 @@ class LT(object):
         """
         Wait for movement ot finish.
         """
-        while not self.is_control_ready() and not self.has_positioning_error():
+        while not self.is_control_ready():
             time.sleep(0.1)
         if self.has_positioning_error():
             # in endschalter gelaufen
@@ -277,9 +299,12 @@ class LT(object):
         Immediately stops the motor
         """
         self.command('#1S')
-        # self._killswitch_wait = True
-        # if self._wait_mov_fin_thread.is_alive():
-        #     self._wait_mov_fin_thread.join()
+
+    def stop_soft(self):
+        """
+        Stops the motor with brake ramp
+        """
+        self.command('#1S1')
 
     def set_reference_point(self, reference):
         """
@@ -297,14 +322,13 @@ class LT(object):
         point.
         """
         self.command('#1p4')
-        self.command('#1l5154') # endschalterverhalten auf r�ckw�rts vom schalter runterfahren
+        self.command('#1l5154') # limit switch behaviour: slowly back off switch
         if self._reference_point == 'near':
             self.command('#1d1')
         else:
             self.command('#1d0')
         self.command('#1o4000')
         self.command('#1A')
-        #self.wait_movement()
         self._reference_changed = False
         
     def move_relative(self, steps, speed=4000):
@@ -326,7 +350,6 @@ class LT(object):
         self.command('#1o' + str(speed))
         self.command('#1s' + str(steps))
         self.command('#1A')
-       # self.wait_movement()
 
     def move_absolute(self, steps, speed=4000):
         """Move the Stage to absolute position, 0 is opposite of motor.
@@ -345,7 +368,6 @@ class LT(object):
         self.command('#1o' + str(int(speed)))
         self.command('#1s' + str(int(steps)))
         self.command('#1A')
-        #self.wait_movement()
 
     def move_relative_mm(self, distance_mm, speed=3):
         """Move the Stage relative to its current position.
@@ -381,9 +403,6 @@ class LT(object):
         self.command('#1p5')
         self.command('#1o' + str(int(speed)))
         self.command('#1A')
-        # non blocking movement surveilance
-        self._killswitch_wait = False
-        #self.__wait_mov_fin_thread.start()
         
     def get_position(self):
         """Return absolute position in steps.
