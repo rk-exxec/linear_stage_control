@@ -30,7 +30,7 @@ class MotorNotReferencedError(Exception):
 
 class LT(object):
     
-    def __init__(self, portname='auto', reference='near', com_timeout=1):
+    def __init__(self, portname='auto', reference='near', com_timeout=0.2):
         """
         Create a new motor control object.
 
@@ -43,7 +43,6 @@ class LT(object):
         self._serial_port = serial.Serial()
         if portname == 'auto':
             try:
-                # FIXME dont cause exception when not found!
                 self._serial_port.port = self.find_com_port()
             except ConnectionError as ce:
                 print('Stepper driver not found!')
@@ -54,6 +53,7 @@ class LT(object):
         self._serial_port.timeout = com_timeout
         self._context_depth = 0
         self._debug = False
+        self._connection_error = False
         self._substeps = 8 #does not do anything right now, for future
         self._reference_point = reference
         self._reference_changed = False
@@ -66,24 +66,39 @@ class LT(object):
         #     print('Referencing is required!')
 
     def __enter__(self):
-        try:
-            if self._context_depth == 0 and self._serial_port.port is not None:
-                self._serial_port.open()
-        except Exception as ex:
-            raise  
-        self._context_depth += 1
-        return self
+        if not self._connection_error:
+            try:
+                if self._context_depth == 0 and self._serial_port.port is not None:
+                    self._serial_port.open()
+            except Exception as ex:
+                self._connection_error = True
+                raise  
+            self._context_depth += 1
+            return self
+        else:
+            return None
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc, value, traceback):
         self._context_depth -= 1
         if self._context_depth == 0:
             self._serial_port.close()
+        if exc:
+            self._connection_error = True
+        return True
 
     def ErrorOutsideContext(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0]._context_depth == 0:
-                raise RuntimeError('Cannot use this Funtion outside of Context').with_traceback(None)
+                raise RuntimeError('Cannot use this Funtion outside of context').with_traceback(None)
+            return func(*args, **kwargs)
+        return wrapper
+
+    def ErrorInsideContext(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if args[0]._context_depth != 0:
+                raise RuntimeError('Cannot use this Funtion inside context').with_traceback(None)
             return func(*args, **kwargs)
         return wrapper
 
@@ -95,6 +110,21 @@ class LT(object):
                 return port.device
         else:
             raise ConnectionError('No Nanotec device found!')
+
+    def has_connection_error(self):
+        return self._connection_error
+
+    @ErrorInsideContext
+    def reset_connection(self) -> bool:
+        """Try to reset connection if timeout has occured"""
+        try:
+            with self:
+                self.is_control_ready()
+            self._connection_error = False
+            return True
+        except TimeoutError:
+            self._connection_error = True
+            return False
 
     # def __delete__(self, instance):
     #     if self._serial_port.is_open:
@@ -131,13 +161,15 @@ class LT(object):
         msg = message + '\r'
         if self._debug: print(message)
         #with self._serial_port:
-        self._serial_port.write(msg.encode())
-        ans = self._serial_port.read_until(b'\r').decode('utf-8')
-        if len(ans) == 0:
-            raise TimeoutError('Port Timeout!')
-        else:
-            if self._debug: print(ans.strip())
-            return ans.strip()
+        if not self._connection_error:
+            self._serial_port.write(msg.encode())
+            ans = self._serial_port.read_until(b'\r').decode('utf-8')
+            if len(ans) == 0:
+                raise TimeoutError('Port Timeout!')
+            else:
+                if self._debug: print(ans.strip())
+                return ans.strip()
+        else: return 0
 
     def command(self, message):
         """
