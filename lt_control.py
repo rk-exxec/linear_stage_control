@@ -17,6 +17,7 @@
 import functools
 import serial
 import time
+import logging
 from decimal import Decimal
 import threading
 import signal
@@ -69,6 +70,8 @@ class LT(object):
         if not self._connection_error:
             try:
                 if self._context_depth == 0 and self._serial_port.port is not None:
+                    # self._serial_port.flushOutput()
+                    # self._serial_port.flushInput()
                     self._serial_port.open()
             except Exception as ex:
                 self._connection_error = True
@@ -390,7 +393,8 @@ class LT(object):
         :param speed: Speed in steps/s
         """
         if not self.is_referenced():
-            raise MotorNotReferencedError
+            logging.error("lt_control: move_absolute(): not referenced!")
+            return
         if abs(steps) > 50000:
             print('Absolute Movement: Too many steps!')
             return
