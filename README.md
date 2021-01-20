@@ -10,6 +10,8 @@ A python class to control the L60 translation table from movtec.de with two limi
 
 ## GUI Usage 
 
+![grafik](https://user-images.githubusercontent.com/40037381/105205492-9d02a780-5b45-11eb-8d78-1439f3895b21.png)
+
 Connect controller via USB.  
 Execute program via command line `python main.py`  
 
