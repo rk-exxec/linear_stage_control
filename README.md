@@ -8,7 +8,7 @@ A python class to control the L60 translation table from movtec.de with two limi
 2. install python 3.8.x, make sure it is added to your PATH variable
 3. install packages `pip install -r requirements.txt`
 
-## Usage 
+## GUI Usage 
 
 Connect controller via USB.  
 Execute program via command line `python main.py`  
