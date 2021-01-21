@@ -4,7 +4,7 @@ A python class to control the L60 translation table from movtec.de with two limi
 
 ## Installation
 
-1. clone repo
+1. clone or download this repository
 2. install python 3.8.x, make sure it is added to your PATH variable
 3. install packages `pip install -r requirements.txt`
 
