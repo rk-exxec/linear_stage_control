@@ -20,7 +20,7 @@ Execute program via command line `python main.py`
 - Jog Up / Down moves the motor in the specified direction while the buttons are held
 - STOP will stop the motor immediately
 - You can also specify a location to travel to via the slider or the text box. You can choose between mm and steps as as unit. To start travel, press GO.
-- The Soft Ramp checkbox causes the motor to accelerate more softly, reducing jerking movements to protect snsitive equipment
+- The Soft Ramp checkbox causes the motor to accelerate more softly, reducing jerking movements to protect sensitive equipment
 - The Reference button will start the referencing sequence to enable the afore mentioned location travel ability.
 - The Lamp will indicate the status:
     - Red: serial connection failed / ERROR
