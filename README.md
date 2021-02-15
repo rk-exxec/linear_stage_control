@@ -2,6 +2,8 @@
 
 A python class to control the L60 translation table from movtec.de with two limit switches via the SMCI33-1 controller
 
+[![Documentation Status](https://readthedocs.org/projects/linear-stage-control/badge/?version=latest)](https://linear-stage-control.readthedocs.io/en/latest/?badge=latest)
+
 ## Installation
 
 1. clone or download this repository
@@ -44,3 +46,7 @@ to
 `self._lt_ctl = LT(portname="COM4")`  
 replace *"COM4"* with the portname of your device, this supports linux ports.  
 Then restart the program.
+
+## API Documentation
+
+https://linear-stage-control.readthedocs.io
