@@ -30,15 +30,16 @@ class MotorNotReferencedError(Exception):
         super().__init__('Motor not referenced! Please call do_referencing()!')
 
 class LT(object):
-    
-    def __init__(self, portname='auto', reference='near', com_timeout=0.2):
-        """
-        Create a new motor control object.
+    """ 
+    This class contains all the control functions
+    Create a new motor control object.
 
-        :param portname: The Port for the serial connection (e.g. 'COM4' for Windows, '/dev/ttyS1' for Linux) or 'auto' for automatic discovery
-        :param reference: Which limit switch will be used for referencing the motor, far means away from motor, near means near, coordinates are positive away from reference
-        :param com_timeout: Timeout in sek for serial port
-        """
+    :param portname: The Port for the serial connection (e.g. 'COM4' for Windows, '/dev/ttyS1' for Linux) or 'auto' for automatic discovery
+    :param reference: Which limit switch will be used for referencing the motor, far means away from motor, near means near, coordinates are positive away from reference
+    :param com_timeout: Timeout in sek for serial port
+    """
+    def __init__(self, portname='auto', reference='near', com_timeout=0.2):
+
         signal.signal(signal.SIGINT, self.sig_handler)
         signal.signal(signal.SIGTERM, self.sig_handler)
         self._serial_port = serial.Serial()
@@ -119,7 +120,9 @@ class LT(object):
 
     @ErrorInsideContext
     def reset_connection(self) -> bool:
-        """Try to reset connection if timeout has occured"""
+        """
+        Try to reset connection if timeout has occured
+        """
         try:
             with self:
                 self.is_control_ready()
@@ -214,7 +217,8 @@ class LT(object):
         
         :returns: The status value
         :rtype: int
-        .. seealso:: is_control_ready(), has_position_error()
+
+        .. seealso:: :py:func:`is_control_ready`, :py:func:`has_positioning_error`
         """
         #extract int value and mask only useful 4 bits
         tmp = self.query('#1$')
@@ -228,6 +232,7 @@ class LT(object):
     def is_control_ready(self):
         """
         Check if the control is ready for movement
+
         :returns: True if control is ready
         :rtype: Boolean
         """
@@ -239,10 +244,12 @@ class LT(object):
 
     def has_positioning_error(self):
         """
-        Check control if a positioning error has occured since last clear_positioning_error()
+        Check control if a positioning error has occured since last call to :py:func:`clear_positioning_error`
+
         :returns: True if a positioning error has occured
         :rtype: Boolean
-        .. seealso:: clear_position_error
+
+        .. seealso:: :py:func:`clear_positioning_error`
         """
         self.fetch_status()
         if self._positioning_error:
@@ -267,6 +274,7 @@ class LT(object):
     def get_position(self):
         """
         Read the current position from the controller
+
         :returns: the position as int
         """
         ans = self.query('#1C')
@@ -370,8 +378,8 @@ class LT(object):
         """Move the Stage relative to its current position.
 
         :param steps: number of steps to travel, max 50000
-        steps < 0: Movement towards reference
-        steps > 0: Movemento away from reference
+            steps < 0: Movement towards reference
+            steps > 0: Movemento away from reference
         :param speed: Speed in steps/s (max 16000)
         """
         if abs(steps) > 50000:
@@ -409,8 +417,8 @@ class LT(object):
         """Move the Stage relative to its current position.
 
         :param distance_mm: travel distance in millimeters
-         < 0: Movement away from motor
-         > 0: Movement towards motor
+            < 0: Movement away from motor
+            > 0: Movement towards motor
         :param speed: Speed in mm/s
         """
         steps = self.mm_to_steps(distance_mm)
