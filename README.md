@@ -21,9 +21,9 @@ Execute program via command line `python main.py`
 ### Controls
 - Jog Up / Down moves the motor in the specified direction while the buttons are held
 - STOP will stop the motor immediately
-- You can also specify a location to travel to via the slider or the text box. You can choose between mm and steps as as unit. To start travel, press GO.
-- The Soft Ramp checkbox causes the motor to accelerate more softly, reducing jerking movements to protect sensitive equipment
-- The Reference button will start the referencing sequence to enable the afore mentioned location travel ability.
+- Slider/TextBox: You can also specify a location to travel to via the slider or the text box. You can choose between mm and steps as as unit. To start travel, press GO.
+- Soft Ramp: checkbox causes the motor to accelerate more softly, reducing jerking movements to protect sensitive equipment
+- Reference: this button will start the referencing sequence to enable the afore mentioned location travel ability.
 - The Lamp will indicate the status:
     - Red: serial connection failed / ERROR
     - Yellow: not referenced
@@ -33,7 +33,11 @@ Execute program via command line `python main.py`
 
 To move to absolute coordinates, the motor must be referenced.  
 For that, press the Reference button.   
+
 **The motor will start moving immediately!**  
+
+**The motor moves until it hits the limit switch! Make sure nothing is in the way!**  
+
 **If the motor does not stop at the limit switch, press STOP!**  
 Check your connections or make sure the voltage level of your switches is 5-24V!
 
