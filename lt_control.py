@@ -23,7 +23,9 @@ import threading
 import signal
 import sys
 
-from serial.tools.list_ports_windows import comports
+
+from serial.tools.list_ports import comports
+
 
 class MotorNotReferencedError(Exception):
     def __init__(self):
