@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'movtec L60 Control'
+project = 'Linear Stage Control'
 copyright = '2021, Raphael Kriegl'
 author = 'Raphael Kriegl'
 
