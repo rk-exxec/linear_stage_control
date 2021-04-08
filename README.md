@@ -1,6 +1,7 @@
 # Linear Stage Control
 
-A python class to control the L60 translation table from movtec.de with two limit switches via the SMCI33-1 controller
+A python class to control a single axis translation table with two limit switches via the SMCI33-1 controller  
+Tested with the movetec L60 and L65 linear stages.
 
 [![Documentation Status](https://readthedocs.org/projects/linear-stage-control/badge/?version=latest)](https://linear-stage-control.readthedocs.io/en/latest/?badge=latest)
 
