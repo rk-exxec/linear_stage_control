@@ -21,18 +21,29 @@ import time
 import sys
 from enum import Enum, auto
 
-from PySide2.QtCore import QCoreApplication, QRect, QSize, QTimer, Signal, Slot, Qt, QThread
-from PySide2.QtGui import QIcon, QPaintEvent, QPainter, QShowEvent
-from PySide2.QtWidgets import QAbstractSpinBox, QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QGroupBox, QLabel, QMainWindow, QMessageBox, QPushButton, QSlider, QWidget
+from PySide2.QtGui import *
+from PySide2.QtCore import *
+from PySide2.QtWidgets import *
+from PySide2.QtUiTools import QUiLoader
 
-from stage_control import StageControl
+def load_ui(ui_file, parent=None):
+    loader = QUiLoader()
+    file = QFile(ui_file)
+    file.open(QFile.ReadOnly)
+    myWidget = loader.load(file, None)
+    myWidget.show()
+    file.close()
+    myWidget.show()
+    return myWidget
+
+from .ls_control import LinearStageControlGUI
 
 if __name__ == "__main__":
     # init application
     app = QApplication(sys.argv)
     widget = QMainWindow()
     widget.resize(309, 202)
-    widget.ui = StageControl(widget)
+    widget.ui = LinearStageControlGUI(widget)
     widget.show()
     # execute qt main loop
     sys.exit(app.exec_())
