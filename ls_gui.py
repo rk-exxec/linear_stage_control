@@ -52,6 +52,8 @@ class LinearStageControlGUI(QGroupBox):
         self._shown = False
         self._mov_dist: float = 0
         self._mov_unit: str = 'steps'
+        self._mov_speed: int = 4000 # steps/s
+        self._mov_speed_mm: float = 3.0 # mm/s
         self._old_unit: str = 'steps'
         self._invalid = False
         self.wait_movement_thread = CallbackWorker(self.wait_movement, slotOnFinished=self.finished_moving)
@@ -59,7 +61,6 @@ class LinearStageControlGUI(QGroupBox):
         logging.debug("initialized stage control")
 
     def __del__(self):
-        #self._lt_ctl.close()
         del self.ls_ctl
 
     def connect_signals(self):
@@ -70,10 +71,12 @@ class LinearStageControlGUI(QGroupBox):
         self.referenceBtn.clicked.connect(self.reference)
         self.goBtn.clicked.connect(self.move_pos)
         self.stopBtn.clicked.connect(self.motor_stop)
-        self.posSpinBox.valueChanged.connect(self.spin_box_val_changed) #lambda pos: self.magnet_ctl.set_mov_dist(int(pos)) or self.posSlider.setValue(int(pos))
+        self.posSpinBox.valueChanged.connect(self.pos_spin_box_val_changed) #lambda pos: self.magnet_ctl.set_mov_dist(int(pos)) or self.posSlider.setValue(int(pos))
         self.unitComboBox.currentTextChanged.connect(self.mag_mov_unit_changed)
-        self.posSlider.sliderMoved.connect(self.slider_moved) # only fires with user input lambda pos: self.posLineEdit.setText(str(pos)) or self.posSpinBox.setValue(float(pos))
+        self.posSlider.sliderMoved.connect(self.pos_slider_moved) # only fires with user input lambda pos: self.posLineEdit.setText(str(pos)) or self.posSpinBox.setValue(float(pos))
         self.softRampChk.stateChanged.connect(self.change_ramp_type)
+        self.speedSlider.sliderMoved.connect(self.speed_slider_moved)
+        self.speedSpinBox.valueChanged.connect(self.speed_spin_box_val_changed)
 
     def OnlyIfPortActive(func):
         """ Decorator that only executes fcn if serial port is open, otherwise it fails silently """
@@ -82,7 +85,7 @@ class LinearStageControlGUI(QGroupBox):
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            if args[0]._lt_ctl.has_connection_error():
+            if args[0].ls_ctl.has_connection_error():
                 logging.warning("stage control: device not ready")
                 return null(*args, **kwargs)
             else:
@@ -152,18 +155,37 @@ class LinearStageControlGUI(QGroupBox):
         self._old_unit = self._mov_unit
 
     @Slot(float)
-    def spin_box_val_changed(self, value: float):
+    def pos_spin_box_val_changed(self, value: float):
         """ update internal variable and slider if spin box value changed """
         self._mov_dist = int(value)
         self.posSlider.setValue(int(value))
 
     @Slot(int)
-    def slider_moved(self, value: int):
-        """ update spin box if slider moved """
+    def pos_slider_moved(self, value: int):
+        """ update spin box if slider moved, this causes the spin box valueChanged signal to fire """
         if self.unitComboBox.currentText() == 'mm':
             self.posSpinBox.setValue(float(value/100))
         else:
             self.posSpinBox.setValue(float(value))
+
+    @Slot(float)
+    def speed_spin_box_val_changed(self, value: float):
+        """ update internal variable and slider if spin box value changed """
+        self.set_speed(value)
+        self.speedSlider.setValue(int(value*10))
+
+    @Slot(int)
+    def speed_slider_moved(self, value: int):
+        """ update spin box if slider moved, this causes the spin box valueChanged signal to fire """
+        self.speedSpinBox.setValue(float(value)/10)
+
+    def set_speed(self, value):
+        """set the speed of the motor
+
+        :param value: speed in mm/s
+        """
+        self._mov_speed = self.ls_ctl.mm_to_steps(value)
+        self._mov_speed_mm = value
 
     @Slot(int)
     @OnlyIfPortActive
@@ -209,7 +231,7 @@ class LinearStageControlGUI(QGroupBox):
         """ start motor movement away from motor """
         logging.info("stage control: start jog up")
         with self.ls_ctl:
-            self.ls_ctl.move_inf_start(0)
+            self.ls_ctl.move_inf_start(0, speed=self._mov_speed)
         self.update_pos_timer.start()
 
     @Slot()
@@ -217,7 +239,7 @@ class LinearStageControlGUI(QGroupBox):
         """ start motor movement towards motor """
         logging.info("stage control: start jog down")
         with self.ls_ctl:
-            self.ls_ctl.move_inf_start(1)
+            self.ls_ctl.move_inf_start(1, speed=self._mov_speed)
         self.update_pos_timer.start()
 
     @Slot()
@@ -225,9 +247,9 @@ class LinearStageControlGUI(QGroupBox):
         """ move motor to specified position """
         with self.ls_ctl:
             if self._mov_unit == 'mm':
-                self.ls_ctl.move_absolute_mm(self._mov_dist)
+                self.ls_ctl.move_absolute_mm(self._mov_dist, speed=self._mov_speed_mm)
             elif self._mov_unit == 'steps':
-                self.ls_ctl.move_absolute(int(self._mov_dist))
+                self.ls_ctl.move_absolute(int(self._mov_dist), speed=self._mov_speed)
         self.lock_movement_buttons()
         logging.info(f"stage control: start movement to {self._mov_dist}{self._mov_unit}")
         self.wait_movement_thread.start()
@@ -350,7 +372,7 @@ class LinearStageControlGUI(QGroupBox):
         self.lamp.setGeometry(QRect(120, 160, 21, 21))
         self.softRampChk = QCheckBox(self)
         self.softRampChk.setObjectName(u"softRampChk")
-        self.softRampChk.setGeometry(QRect(l10, 110, 70, 17))
+        self.softRampChk.setGeometry(QRect(10, 110, 70, 17))
         self.softRampChk.setChecked(False)
         self.groupBox_2 = QGroupBox(self)
         self.groupBox_2.setObjectName(u"groupBox_2")
