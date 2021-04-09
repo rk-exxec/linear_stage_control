@@ -31,7 +31,7 @@ class MotorNotReferencedError(Exception):
     def __init__(self):
         super().__init__('Motor not referenced! Please call do_referencing()!')
 
-class LT(object):
+class LinearStageControl(object):
     """ 
     This class contains all the control functions
     Create a new motor control object.
@@ -210,7 +210,7 @@ class LT(object):
             return False
 
     def setup_defaults(self):
-        self.command('#1g8') # microstepping, 8 microsteps per step
+        self.command(f'#1g{self._substeps}') # microstepping
 
 
     def fetch_status(self):

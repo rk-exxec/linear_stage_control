@@ -1,2 +1,2 @@
-from .lt_control import LT
-from .stage_control import StageControl
+from .ls_control import LinearStageControl
+from .ls_gui import LinearStageControlGUI

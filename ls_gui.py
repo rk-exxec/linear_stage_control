@@ -19,20 +19,15 @@
 # TODO maybe do StageControl class and expand it with the magnet stuff??
 
 import functools
-import pyvisa
-import time
+import pathlib
 import logging
-import numpy as np
-import pandas as pd
-from scipy import interpolate
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
-from scipy.interpolate.interpolate import interp1d
 
 from .light_widget import LightWidget
-from .lt_control import LT
+from .ls_control import LinearStageControl
 
 from .qthread_worker import CallbackWorker
 
@@ -44,34 +39,28 @@ class CustomCallbackTimer(QTimer):
         self.setSingleShot(False)
         self.timeout.connect(target)
 
-# TODO implement as standalone for Heiko Unold
-# TODO calib - test
-# TODO retry failed serial port in timer and update motor status once connected again
-# TODO test new decorator
-
-class StageControl(QGroupBox):
+class LinearStageControlGUI(QGroupBox):
     """
     A widget to control the motor via the module `lt_control`_.
 
-    .. seealso:: :class:`LightWidget<light_widget.LightWidget>`
-    .. _lt_control: https://github.com/rk-exxec/linear_stage_control
+    .. seealso:: :class:`LT<lt_control.LT>`
     """
     def __init__(self, parent=None) -> None:
-        super(StageControl, self).__init__(parent)
-        self._lt_ctl = LT()
+        super(LinearStageControlGUI, self).__init__(parent)
+        self.ls_ctl = LinearStageControl()
         self.setupUI()
         self._shown = False
         self._mov_dist: float = 0
         self._mov_unit: str = 'steps'
         self._old_unit: str = 'steps'
         self._invalid = False
-        self.wait_movement_thread = CallbackWorker(self.wait_movement, self.finished_moving)
+        self.wait_movement_thread = CallbackWorker(self.wait_movement, slotOnFinished=self.finished_moving)
         self.update_pos_timer = CustomCallbackTimer(self.update_pos, 250)
         logging.debug("initialized stage control")
 
     def __del__(self):
         #self._lt_ctl.close()
-        del self._lt_ctl
+        del self.ls_ctl
 
     def connect_signals(self):
         self.jogUpBtn.pressed.connect(self.jog_up_start)
@@ -121,9 +110,9 @@ class StageControl(QGroupBox):
     @OnlyIfPortActive
     def update_motor_status(self):
         """ Get motor status and display it """
-        with self._lt_ctl:
+        with self.ls_ctl:
             try:
-                if not self._lt_ctl.is_referenced():
+                if not self.ls_ctl.is_referenced():
                     self.lamp.set_yellow()
                     self.set_status_message('Referencing needed!')
                     self.unlock_movement_buttons()
@@ -150,13 +139,13 @@ class StageControl(QGroupBox):
             self.posSlider.setTickInterval(100)
             self.posSpinBox.setDecimals(2)
             if self._old_unit == 'steps':
-                self.posSpinBox.setValue(self._lt_ctl.steps_to_mm(self.posSpinBox.value()))
+                self.posSpinBox.setValue(self.ls_ctl.steps_to_mm(self.posSpinBox.value()))
         elif unit == 'steps':
             self.posSlider.setMaximum(50000)
             self.posSlider.setTickInterval(1000)
             self.posSpinBox.setDecimals(0)
             if self._old_unit == 'mm':
-                self.posSpinBox.setValue(self._lt_ctl.mm_to_steps(self.posSpinBox.value()))
+                self.posSpinBox.setValue(self.ls_ctl.mm_to_steps(self.posSpinBox.value()))
         else:
             return
         logging.info(f"stage control: movement unit changed from {self._old_unit} to {self._mov_unit}")
@@ -181,12 +170,12 @@ class StageControl(QGroupBox):
     def change_ramp_type(self, state: Qt.CheckState):
         """ set motor brake and accel ramp on check changed """
         if state == Qt.Checked:
-            with self._lt_ctl:
-                self._lt_ctl.set_soft_ramp()
+            with self.ls_ctl:
+                self.ls_ctl.set_soft_ramp()
             logging.info("stage control: set soft ramp")
         elif state == Qt.Unchecked:
-            with self._lt_ctl:
-                self._lt_ctl.set_quick_ramp()
+            with self.ls_ctl:
+                self.ls_ctl.set_quick_ramp()
                 logging.info("stage control: set quick ramp")
         else:
             pass
@@ -209,36 +198,36 @@ class StageControl(QGroupBox):
 
     def get_position(self):
         """ return the motor position in the current unit """
-        with self._lt_ctl:
+        with self.ls_ctl:
             if self._mov_unit == 'steps':
-                return self._lt_ctl.get_position()
+                return self.ls_ctl.get_position()
             elif self._mov_unit == 'mm':
-                return self._lt_ctl.steps_to_mm(self._lt_ctl.get_position())
+                return self.ls_ctl.steps_to_mm(self.ls_ctl.get_position())
 
     @Slot()
     def jog_up_start(self):
         """ start motor movement away from motor """
         logging.info("stage control: start jog up")
-        with self._lt_ctl:
-            self._lt_ctl.move_inf_start(0)
+        with self.ls_ctl:
+            self.ls_ctl.move_inf_start(0)
         self.update_pos_timer.start()
 
     @Slot()
     def jog_down_start(self):
         """ start motor movement towards motor """
         logging.info("stage control: start jog down")
-        with self._lt_ctl:
-            self._lt_ctl.move_inf_start(1)
+        with self.ls_ctl:
+            self.ls_ctl.move_inf_start(1)
         self.update_pos_timer.start()
 
     @Slot()
     def move_pos(self):
         """ move motor to specified position """
-        with self._lt_ctl:
+        with self.ls_ctl:
             if self._mov_unit == 'mm':
-                self._lt_ctl.move_absolute_mm(self._mov_dist)
+                self.ls_ctl.move_absolute_mm(self._mov_dist)
             elif self._mov_unit == 'steps':
-                self._lt_ctl.move_absolute(int(self._mov_dist))
+                self.ls_ctl.move_absolute(int(self._mov_dist))
         self.lock_movement_buttons()
         logging.info(f"stage control: start movement to {self._mov_dist}{self._mov_unit}")
         self.wait_movement_thread.start()
@@ -246,8 +235,8 @@ class StageControl(QGroupBox):
     @Slot()
     def motor_stop(self):
         """ stop motor immediately"""
-        with self._lt_ctl:
-            self._lt_ctl.stop()
+        with self.ls_ctl:
+            self.ls_ctl.stop()
         if self.update_pos_timer.isActive():
             self.update_pos_timer.stop()
         logging.info("stage control: stop")
@@ -257,8 +246,8 @@ class StageControl(QGroupBox):
     @Slot()
     def motor_stop_soft(self):
         """ stops motor with brake ramp """
-        with self._lt_ctl:
-            self._lt_ctl.stop_soft()
+        with self.ls_ctl:
+            self.ls_ctl.stop_soft()
         if self.update_pos_timer.isActive():
             self.update_pos_timer.stop()
         logging.info("stage control: stop")
@@ -267,8 +256,8 @@ class StageControl(QGroupBox):
 
     def wait_movement(self):
         """ wait unitl movement stops """
-        with self._lt_ctl:
-            self._lt_ctl.wait_movement()
+        with self.ls_ctl:
+            self.ls_ctl.wait_movement()
 
     def finished_moving(self):
         """ update ui position displays when movement finishes """
@@ -282,15 +271,15 @@ class StageControl(QGroupBox):
         """ execute referencing process """
         self.lamp.set_yellow()
         logging.info("stage control: referencing")
-        with self._lt_ctl:
-            self._lt_ctl.do_referencing()
+        with self.ls_ctl:
+            self.ls_ctl.do_referencing()
         self.lock_movement_buttons()
         self.wait_movement_thread.start()
 
     def is_driver_ready(self) -> bool:
         """ check if the motor drive is ready for movement """
-        with self._lt_ctl:
-            return self._lt_ctl.test_connection()
+        with self.ls_ctl:
+            return self.ls_ctl.test_connection()
 
     def unlock_mag_unit(self):
         """ mag unit is now available """
@@ -338,23 +327,21 @@ class StageControl(QGroupBox):
         self.setGeometry(QRect(10, 0, 291, 191))
         self.jogUpBtn = QPushButton(self)
         self.jogUpBtn.setObjectName(u"jogUpBtn")
-        self.jogUpBtn.setGeometry(QRect(10, 30, 71, 23))
+        self.jogUpBtn.setGeometry(QRect(10, 20, 71, 23))
         self.jogUpBtn.setLayoutDirection(Qt.LeftToRight)
         icon = QIcon()
-        icon.addFile(u"qt_resources/qt_resources/up.svg", QSize(), QIcon.Normal, QIcon.Off)
+        path = pathlib.Path(__file__).parent.absolute()
+        icon.addFile(f"{path}/qt_resources/up.svg", QSize(), QIcon.Normal, QIcon.Off)
         self.jogUpBtn.setIcon(icon)
         self.jogDownBtn = QPushButton(self)
         self.jogDownBtn.setObjectName(u"jogDownBtn")
-        self.jogDownBtn.setGeometry(QRect(10, 60, 71, 23))
+        self.jogDownBtn.setGeometry(QRect(10, 50, 71, 23))
         icon1 = QIcon()
-        icon1.addFile(u"qt_resources/qt_resources/down.svg", QSize(), QIcon.Normal, QIcon.Off)
+        icon1.addFile(f"{path}/qt_resources/down.svg", QSize(), QIcon.Normal, QIcon.Off)
         self.jogDownBtn.setIcon(icon1)
         self.stopBtn = QPushButton(self)
         self.stopBtn.setObjectName(u"stopBtn")
-        self.stopBtn.setGeometry(QRect(10, 90, 71, 23))
-        self.pushButton_12 = QPushButton(self)
-        self.pushButton_12.setObjectName(u"pushButton_12")
-        self.pushButton_12.setGeometry(QRect(10, 160, 71, 23))
+        self.stopBtn.setGeometry(QRect(10, 80, 71, 23))
         self.referenceBtn = QPushButton(self)
         self.referenceBtn.setObjectName(u"referenceBtn")
         self.referenceBtn.setGeometry(QRect(10, 130, 71, 23))
@@ -363,11 +350,11 @@ class StageControl(QGroupBox):
         self.lamp.setGeometry(QRect(120, 160, 21, 21))
         self.softRampChk = QCheckBox(self)
         self.softRampChk.setObjectName(u"softRampChk")
-        self.softRampChk.setGeometry(QRect(210, 110, 70, 17))
+        self.softRampChk.setGeometry(QRect(l10, 110, 70, 17))
         self.softRampChk.setChecked(False)
         self.groupBox_2 = QGroupBox(self)
         self.groupBox_2.setObjectName(u"groupBox_2")
-        self.groupBox_2.setGeometry(QRect(120, 30, 161, 80))
+        self.groupBox_2.setGeometry(QRect(120, 10, 161, 80))
         self.goBtn = QPushButton(self.groupBox_2)
         self.goBtn.setObjectName(u"goBtn")
         self.goBtn.setGeometry(QRect(120, 20, 31, 23))
@@ -395,6 +382,29 @@ class StageControl(QGroupBox):
         self.statusLabel = QLabel(self)
         self.statusLabel.setObjectName(u"statusLabel")
         self.statusLabel.setGeometry(QRect(150, 160, 131, 21))
+        self.speedSlider = QSlider(self)
+        self.speedSlider.setObjectName(u"speedSlider")
+        self.speedSlider.setGeometry(QRect(130, 110, 91, 22))
+        self.speedSlider.setMinimum(0)
+        self.speedSlider.setMaximum(120)
+        self.speedSlider.setPageStep(10)
+        self.speedSlider.setValue(30)
+        self.speedSlider.setOrientation(Qt.Horizontal)
+        self.speedSlider.setInvertedAppearance(False)
+        self.speedSlider.setInvertedControls(False)
+        self.speedSlider.setTickPosition(QSlider.TicksAbove)
+        self.label = QLabel(self)
+        self.label.setObjectName(u"label")
+        self.label.setGeometry(QRect(130, 90, 71, 16))
+        self.speedSpinBox = QDoubleSpinBox(self)
+        self.speedSpinBox.setObjectName(u"speedSpinBox")
+        self.speedSpinBox.setGeometry(QRect(230, 110, 41, 21))
+        self.speedSpinBox.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.speedSpinBox.setAccelerated(False)
+        self.speedSpinBox.setDecimals(1)
+        self.speedSpinBox.setMinimum(1.000000000000000)
+        self.speedSpinBox.setMaximum(12.500000000000000)
+        self.speedSpinBox.setValue(3.000000000000000)
 
         self.retranslateUi()
     
@@ -403,7 +413,6 @@ class StageControl(QGroupBox):
         self.jogUpBtn.setText(QCoreApplication.translate("ctl_widget", u" Jog up   ", None))
         self.jogDownBtn.setText(QCoreApplication.translate("ctl_widget", u" Jog down", None))
         self.stopBtn.setText(QCoreApplication.translate("ctl_widget", u"STOP", None))
-        self.pushButton_12.setText(QCoreApplication.translate("ctl_widget", u"Cal. B-Field", None))
         self.referenceBtn.setText(QCoreApplication.translate("ctl_widget", u"Reference", None))
         self.softRampChk.setText(QCoreApplication.translate("ctl_widget", u"Soft Ramp", None))
         self.groupBox_2.setTitle(QCoreApplication.translate("ctl_widget", u"Manual Positioning", None))
@@ -411,5 +420,6 @@ class StageControl(QGroupBox):
         self.unitComboBox.setItemText(0, QCoreApplication.translate("ctl_widget", u"steps", None))
         self.unitComboBox.setItemText(1, QCoreApplication.translate("ctl_widget", u"mm", None))
         self.unitComboBox.setItemText(2, QCoreApplication.translate("ctl_widget", u"mT", None))
+        self.label.setText(QCoreApplication.translate("ctl_widget", u"Speed (mm/s):", None))
 
         self.statusLabel.setText("")
