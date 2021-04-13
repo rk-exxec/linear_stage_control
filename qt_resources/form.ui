@@ -197,12 +197,12 @@
      </property>
      <item>
       <property name="text">
-       <string>steps</string>
+       <string>mm</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>mm</string>
+       <string>steps</string>
       </property>
      </item>
      <item>
