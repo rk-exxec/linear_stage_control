@@ -27,7 +27,7 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from .ls_control import LinearStageControl
+from .LinearStageControl import LinearStageControl
 
 
 class CustomCallbackTimer(QTimer):
@@ -110,9 +110,8 @@ class LightWidget(QWidget):
 
 class LinearStageControlGUI(QGroupBox):
     """
-    A widget to control the motor via the module `lt_control`_.
+    A widget to control the motor via the module :class:`LinearStageControl`.
 
-    .. seealso:: :class:`LinearStageControl<lt_control.LinearStageControl>`
     """
     def __init__(self, parent=None) -> None:
         super(LinearStageControlGUI, self).__init__(parent)
@@ -166,6 +165,7 @@ class LinearStageControlGUI(QGroupBox):
             self.connect_signals()
             self.update_motor_status()
             self.update_pos()
+            self.mag_mov_unit_changed('mm')
             self.change_ramp_type(self.softRampChk.isChecked())
             self._shown = True
             return True
