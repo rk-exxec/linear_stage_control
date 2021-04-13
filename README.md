@@ -16,7 +16,7 @@ Tested with the movetec L60 and L65 linear stages.
 ![grafik](https://user-images.githubusercontent.com/40037381/105205492-9d02a780-5b45-11eb-8d78-1439f3895b21.png)
 
 Connect controller via USB.  
-Execute program via command line `python main.py`  
+Execute program via command line `python -m linear_stage_control`  
 
 
 ### Controls
@@ -45,10 +45,10 @@ Check your connections or make sure the voltage level of your switches is 5-24V!
 ## Troubleshooting
 
 The Serial Port of the controller should be detected automatically, but this will only work reliably if no other Nanotec controller is plugged in!  
-If it doesnt work, open `main.py` and alter this line:  
-`self._lt_ctl = LT()`  
+If it doesnt work, open `ls_gui.py` and alter this line:  
+`self.ls_ctl = LinearStageControl()`  
 to  
-`self._lt_ctl = LT(portname="COM4")`  
+`self.ls_ctl = LinearStageControl(portname="COM4")`  
 replace *"COM4"* with the portname of your device, this supports linux ports.  
 Then restart the program.
 
