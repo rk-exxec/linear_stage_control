@@ -78,6 +78,7 @@ class LinearStageControl(object):
                     self._serial_port.open()
             except Exception as ex:
                 self._connection_error = True
+                logging.error("stage control: error opening port: \n" + str(exc))
                 raise  
             self._context_depth += 1
             return self
@@ -90,6 +91,7 @@ class LinearStageControl(object):
             self._serial_port.close()
         if exc:
             self._connection_error = True
+            logging.error("stage control: error closing port: \n" + str(exc))
         return True
 
     def ErrorOutsideContext(func):

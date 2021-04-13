@@ -14,12 +14,8 @@
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
-import functools
-
-import time
 import sys
-from enum import Enum, auto
+sys.path.append('./src')
 
 from PySide2.QtGui import *
 from PySide2.QtCore import *
@@ -36,7 +32,7 @@ def load_ui(ui_file, parent=None):
     myWidget.show()
     return myWidget
 
-from .ls_control import LinearStageControlGUI
+from lt_control import LinearStageControlGUI
 
 if __name__ == "__main__":
     # init application

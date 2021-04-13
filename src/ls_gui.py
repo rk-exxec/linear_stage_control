@@ -43,7 +43,7 @@ class LinearStageControlGUI(QGroupBox):
     """
     A widget to control the motor via the module `lt_control`_.
 
-    .. seealso:: :class:`LT<lt_control.LT>`
+    .. seealso:: :class:`LinearStageControl<lt_control.LinearStageControl>`
     """
     def __init__(self, parent=None) -> None:
         super(LinearStageControlGUI, self).__init__(parent)
@@ -158,6 +158,8 @@ class LinearStageControlGUI(QGroupBox):
     def pos_spin_box_val_changed(self, value: float):
         """ update internal variable and slider if spin box value changed """
         self._mov_dist = int(value)
+        if self.unitComboBox.currentText() == 'mm':
+            value = value*100
         self.posSlider.setValue(int(value))
 
     @Slot(int)
@@ -373,7 +375,7 @@ class LinearStageControlGUI(QGroupBox):
         self.softRampChk = QCheckBox(self)
         self.softRampChk.setObjectName(u"softRampChk")
         self.softRampChk.setGeometry(QRect(10, 110, 70, 17))
-        self.softRampChk.setChecked(False)
+        self.softRampChk.setChecked(True)
         self.groupBox_2 = QGroupBox(self)
         self.groupBox_2.setObjectName(u"groupBox_2")
         self.groupBox_2.setGeometry(QRect(120, 10, 161, 80))
@@ -439,8 +441,8 @@ class LinearStageControlGUI(QGroupBox):
         self.softRampChk.setText(QCoreApplication.translate("ctl_widget", u"Soft Ramp", None))
         self.groupBox_2.setTitle(QCoreApplication.translate("ctl_widget", u"Manual Positioning", None))
         self.goBtn.setText(QCoreApplication.translate("ctl_widget", u"Go", None))
-        self.unitComboBox.setItemText(0, QCoreApplication.translate("ctl_widget", u"steps", None))
-        self.unitComboBox.setItemText(1, QCoreApplication.translate("ctl_widget", u"mm", None))
+        self.unitComboBox.setItemText(0, QCoreApplication.translate("ctl_widget", u"mm", None))
+        self.unitComboBox.setItemText(1, QCoreApplication.translate("ctl_widget", u"steps", None))
         self.unitComboBox.setItemText(2, QCoreApplication.translate("ctl_widget", u"mT", None))
         self.label.setText(QCoreApplication.translate("ctl_widget", u"Speed (mm/s):", None))
 
