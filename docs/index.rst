@@ -5,8 +5,7 @@ Linear Stage Control - API documentation
    :maxdepth: 2
    :caption: Class description:
 
-.. automodule:: lt_control
-   :members: LT
+   api/ls_control
 
 
 Indices and tables
