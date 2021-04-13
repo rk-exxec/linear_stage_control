@@ -38,6 +38,7 @@ if __name__ == "__main__":
     # init application
     app = QApplication(sys.argv)
     widget = QMainWindow()
+    widget.setWindowTitle("Linear Stage Control")
     widget.resize(309, 202)
     widget.ui = LinearStageControlGUI(widget)
     widget.show()

@@ -21,15 +21,14 @@
 import functools
 import pathlib
 import logging
+from enum import Enum, auto
 
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from .light_widget import LightWidget
 from .ls_control import LinearStageControl
 
-from .qthread_worker import CallbackWorker
 
 class CustomCallbackTimer(QTimer):
     """ Timer with custom callback function """
@@ -38,6 +37,76 @@ class CustomCallbackTimer(QTimer):
         self.setInterval(interval)
         self.setSingleShot(False)
         self.timeout.connect(target)
+
+class CallbackWorker(QThread):
+    """ Thread with callback function on exit """
+    def __init__(self, target, *args, slotOnFinished=None, **kwargs):
+        super(CallbackWorker, self).__init__()
+        self.args = args
+        self.kwargs = kwargs
+        self.target = target
+        if slotOnFinished:
+            self.finished.connect(slotOnFinished)
+
+    def run(self):
+        self.target(*self.args, **self.kwargs)
+
+class LightColor(Enum):
+    """ helper class to enumerate colors for lamp widget
+
+    .. seealso:: :class:`LightWidget`
+    """
+    RED = auto() #Qt.red
+    GREEN = auto() #Qt.green
+    ERROR = auto() #Qt.darkRed
+    YELLOW = auto() #Qt.yellow
+    OFF = auto()
+
+class LightWidget(QWidget):
+    """
+    provides a round status lamp as widget with 4 colors to indicate status ok, warning, stop and error
+
+    .. seealso:: :class:`LightColor`
+    """
+    def __init__(self, parent=None):
+        super(LightWidget, self).__init__(parent)
+        self._color = LightColor.OFF
+
+    def set_red(self):
+        """ set lamp color to red """
+        self._color = LightColor.RED
+        self.update()
+
+    def set_green(self):
+        """ set lamp color to green """
+        self._color = LightColor.GREEN
+        self.update()
+
+    def set_error(self):
+        """ set lamp color to dark red """
+        self._color = LightColor.ERROR
+        self.update()
+
+    def set_yellow(self):
+        """ set lamp color to yellow """
+        self._color = LightColor.YELLOW
+        self.update()
+
+    def paintEvent(self, event: QPaintEvent):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        if self._color == LightColor.RED:
+            painter.setBrush(Qt.red)
+        elif self._color == LightColor.GREEN:
+            painter.setBrush(Qt.green)
+        elif self._color == LightColor.ERROR:
+            painter.setBrush(Qt.darkRed)
+        elif self._color == LightColor.YELLOW:
+            painter.setBrush(Qt.yellow)
+        else:
+            painter.setBrush(Qt.gray)
+        painter.drawEllipse(2,2,self.width()-4, self.height()-4)
+        painter.end()
 
 class LinearStageControlGUI(QGroupBox):
     """
@@ -355,13 +424,13 @@ class LinearStageControlGUI(QGroupBox):
         self.jogUpBtn.setLayoutDirection(Qt.LeftToRight)
         icon = QIcon()
         path = pathlib.Path(__file__).parent.absolute().resolve()
-        icon.addFile(f"{path}/../qt_resources/up.svg", QSize(), QIcon.Normal, QIcon.Off)
+        icon.addFile(f"{path}/../qt/up.svg", QSize(), QIcon.Normal, QIcon.Off)
         self.jogUpBtn.setIcon(icon)
         self.jogDownBtn = QPushButton(self)
         self.jogDownBtn.setObjectName(u"jogDownBtn")
         self.jogDownBtn.setGeometry(QRect(10, 50, 71, 23))
         icon1 = QIcon()
-        icon1.addFile(f"{path}/../qt_resources/down.svg", QSize(), QIcon.Normal, QIcon.Off)
+        icon1.addFile(f"{path}/../qt/down.svg", QSize(), QIcon.Normal, QIcon.Off)
         self.jogDownBtn.setIcon(icon1)
         self.stopBtn = QPushButton(self)
         self.stopBtn.setObjectName(u"stopBtn")
