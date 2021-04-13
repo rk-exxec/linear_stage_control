@@ -1,4 +1,4 @@
-#     this file provides gui functionality for lt_control
+#     Linear Stage Control is a program to control a single linear table via SMCI33-1
 #     Copyright (C) 2020  Raphael Kriegl
 
 #     This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,6 @@
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import sys
-sys.path.append('./src')
 
 from PySide2.QtGui import *
 from PySide2.QtCore import *
@@ -32,7 +31,7 @@ def load_ui(ui_file, parent=None):
     myWidget.show()
     return myWidget
 
-from lt_control import LinearStageControlGUI
+from . import LinearStageControlGUI
 
 if __name__ == "__main__":
     # init application

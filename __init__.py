@@ -1,1 +1,2 @@
-from .src import LinearStageControl, LinearStageControlGUI
+from .ls_control import LinearStageControl
+from .ls_control import LinearStageControlGUI
