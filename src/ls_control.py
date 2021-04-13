@@ -1,5 +1,5 @@
-#     lt_control is a program to control a single linear table via SMCI33-1
-#     Copyright (C) 2020  Raphael Kriegl
+#     Linear Stage Control is a program to control a single linear table via SMCI33-1
+#     Copyright (C) 2021  Raphael Kriegl
 
 #     This program is free software: you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
