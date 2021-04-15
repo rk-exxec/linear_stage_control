@@ -16,10 +16,14 @@
 
 import sys
 
-from PySide2.QtGui import *
-from PySide2.QtCore import *
-from PySide2.QtWidgets import *
+from PySide2.QtCore import QFile
+from PySide2.QtWidgets import QMainWindow, QApplication
 from PySide2.QtUiTools import QUiLoader
+
+
+
+from . import LinearStageControlGUI
+
 
 def load_ui(ui_file, parent=None):
     loader = QUiLoader()
@@ -30,8 +34,6 @@ def load_ui(ui_file, parent=None):
     file.close()
     myWidget.show()
     return myWidget
-
-from . import LinearStageControlGUI
 
 if __name__ == "__main__":
     # init application
