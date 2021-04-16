@@ -248,8 +248,8 @@ class LinearStageControl(object):
         tmp = self.query('#1$')
         logging.debug("stage control: fetched status: " + tmp)
         if tmp[-1] != '?':
-            tmp = int(tmp[-3:])
-            tmp = int(tmp)
+            tmp = int(tmp.split("$")[-1][-3:],16)
+            #tmp = int(tmp)
             self._status = tmp & 0xF
             self._positioning_error = (self._status & 0b0100) >> 2
             return self._status
