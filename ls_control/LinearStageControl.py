@@ -15,6 +15,8 @@
 #     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import functools
+import traceback
+from types import TracebackType
 import serial
 import time
 import logging
@@ -65,6 +67,7 @@ class LinearStageControl(object):
         self._positioning_error = 0
         self._killswitch_wait = False
         self._wait_mov_fin_thread = threading.Thread(target=self.wait_movement)
+        self._is_querying = False
         #self.setup_defaults()
         # if not self.is_referenced():
         #     print('Referencing is required!')
@@ -72,42 +75,57 @@ class LinearStageControl(object):
     def __enter__(self):
         if not self._connection_error:
             try:
-                if self._context_depth == 0 and self._serial_port.port is not None:
+                if self._context_depth == 0 and not self._serial_port.port is None and not self._serial_port.is_open:
                     # self._serial_port.flushOutput()
                     # self._serial_port.flushInput()
                     self._serial_port.open()
-            except Exception as ex:
+            except ConnectionError as ex:
                 self._connection_error = True
-                logging.error("stage control: error opening port: \n" + str(exc))
+                logging.error("stage control: error entering context: \n" + str(ex))
                 raise  
             self._context_depth += 1
+            logging.debug(f"stage control: entered context at level {self._context_depth}")
             return self
         else:
             return None
 
-    def __exit__(self, exc, value, traceback):
+    def __exit__(self, exc, value, trace):
+        logging.debug(f"stage control: leaving context from level {self._context_depth}")
         self._context_depth -= 1
         if self._context_depth == 0:
             self._serial_port.close()
         if exc:
-            self._connection_error = True
-            logging.error("stage control: error closing port: \n" + str(exc))
+            if exc is type(ConnectionError): self._connection_error = True
+            logging.error("".join(traceback.format_exception(etype=exc, value=value, tb=trace)))
         return True
 
-    def ErrorOutsideContext(func):
+    def error_outside_context(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0]._context_depth == 0:
-                raise RuntimeError('Cannot use this Funtion outside of context').with_traceback(None)
+                raise RuntimeError('Cannot use this Funtion outside of context')
             return func(*args, **kwargs)
         return wrapper
 
-    def ErrorInsideContext(func):
+    def error_inside_context(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0]._context_depth != 0:
-                raise RuntimeError('Cannot use this Funtion inside context').with_traceback(None)
+                raise RuntimeError('Cannot use this Funtion inside context')
             return func(*args, **kwargs)
+        return wrapper
+
+    def atomic_section(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if args[0]._is_querying:
+                logging.debug("stage control: atomic section waiting for clear")
+            while args[0]._is_querying:
+                pass
+            args[0]._is_querying = True
+            ret = func(*args, **kwargs)
+            args[0]._is_querying = False
+            return ret
         return wrapper
 
     @staticmethod
@@ -117,22 +135,22 @@ class LinearStageControl(object):
             if port.manufacturer == 'Nanotec':
                 return port.device
         else:
-            raise ConnectionError('No Nanotec device found!')
+            raise ConnectionError('SMCI33-1 stepper driver not found!')
 
     def has_connection_error(self):
         return self._connection_error
 
-    @ErrorInsideContext
+    @error_inside_context
     def reset_connection(self) -> bool:
         """
         Try to reset connection if timeout has occured
         """
         try:
+            self._connection_error = False
             with self:
                 self.is_control_ready()
-            self._connection_error = False
             return True
-        except TimeoutError:
+        except Exception:
             self._connection_error = True
             return False
 
@@ -159,7 +177,8 @@ class LinearStageControl(object):
         except TimeoutError as toe:
             return False
 
-    @ErrorOutsideContext
+    @error_outside_context
+    @atomic_section
     def query(self, message):
         """
         Send a message to the controller with newline char and reads response.
@@ -179,7 +198,8 @@ class LinearStageControl(object):
             else:
                 if self._debug: print(ans.strip())
                 return ans.strip()
-        else: return 0
+        else: 
+            raise ConnectionError("Connection Failed!")
 
     def command(self, message):
         """
@@ -226,6 +246,7 @@ class LinearStageControl(object):
         """
         #extract int value and mask only useful 4 bits
         tmp = self.query('#1$')
+        logging.debug("stage control: fetched status: " + tmp)
         if tmp[-1] != '?':
             tmp = int(tmp[-3:])
             tmp = int(tmp)

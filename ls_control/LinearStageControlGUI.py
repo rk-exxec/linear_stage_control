@@ -146,7 +146,7 @@ class LinearStageControlGUI(QGroupBox):
         self.speedSlider.sliderMoved.connect(self.speed_slider_moved)
         self.speedSpinBox.valueChanged.connect(self.speed_spin_box_val_changed)
 
-    def OnlyIfPortActive(func):
+    def if_port_is_active(func):
         """ Decorator that only executes fcn if serial port is open, otherwise it fails silently """
         def null(*args, **kwargs):
             pass
@@ -170,7 +170,7 @@ class LinearStageControlGUI(QGroupBox):
             self._shown = True
             return True
 
-    @OnlyIfPortActive
+    @if_port_is_active
     def update_pos(self):
         """ update spin box with current pos"""
         try:
@@ -179,7 +179,7 @@ class LinearStageControlGUI(QGroupBox):
             pos = 45100
         self.posSpinBox.setValue(pos)
 
-    @OnlyIfPortActive
+    @if_port_is_active
     def update_motor_status(self):
         """ Get motor status and display it """
         with self.ls_ctl:
@@ -190,12 +190,19 @@ class LinearStageControlGUI(QGroupBox):
                     self.unlock_movement_buttons()
                     self.lock_abs_pos_buttons()
                     logging.info("stage control: no reference! locking absolute movement")
-                else:
+                    return True
+                elif self.ls_ctl.is_control_ready():
                     self.lamp.set_green()
-                    self.set_status_message('')
+                    self.set_status_message('Ready')
                     self.unlock_movement_buttons()
                     logging.info("stage control: has reference! unlocking absolute movement")
-                return True
+                    return True
+                else:
+                    self.lamp.set_red()
+                    self.set_status_message('Connection Error!')
+                    logging.warning("stage control: connection error")
+                    self.lock_movement_buttons()
+                    return False
             except TimeoutError as te:
                 self.lamp.set_red()
                 self.set_status_message('Connection Timeout!')
@@ -259,7 +266,7 @@ class LinearStageControlGUI(QGroupBox):
         self._mov_speed_mm = value
 
     @Slot(int)
-    @OnlyIfPortActive
+    @if_port_is_active
     def change_ramp_type(self, state: Qt.CheckState):
         """ set motor brake and accel ramp on check changed """
         if state == Qt.Checked:
@@ -301,6 +308,7 @@ class LinearStageControlGUI(QGroupBox):
     def jog_up_start(self):
         """ start motor movement away from motor """
         logging.info("stage control: start jog up")
+        self.set_status_message('Jogging')
         with self.ls_ctl:
             self.ls_ctl.move_inf_start(0, speed=self._mov_speed)
         self.update_pos_timer.start()
@@ -309,6 +317,7 @@ class LinearStageControlGUI(QGroupBox):
     def jog_down_start(self):
         """ start motor movement towards motor """
         logging.info("stage control: start jog down")
+        self.set_status_message('Jogging')
         with self.ls_ctl:
             self.ls_ctl.move_inf_start(1, speed=self._mov_speed)
         self.update_pos_timer.start()
@@ -322,7 +331,8 @@ class LinearStageControlGUI(QGroupBox):
             elif self._mov_unit == 'steps':
                 self.ls_ctl.move_absolute(int(self._mov_dist), speed=self._mov_speed)
         self.lock_movement_buttons()
-        logging.info(f"stage control: start movement to {self._mov_dist}{self._mov_unit}")
+        logging.info(f"stage control: start movement to {self._mov_dist} {self._mov_unit}")
+        self.set_status_message(f'Moving to {self._mov_dist} {self._mov_unit}')
         self.wait_movement_thread.start()
 
     @Slot()
@@ -333,6 +343,7 @@ class LinearStageControlGUI(QGroupBox):
         if self.update_pos_timer.isActive():
             self.update_pos_timer.stop()
         logging.info("stage control: stop")
+        self.set_status_message('Stop')
         self.update_pos()
         self.update_motor_status()
 
@@ -344,6 +355,7 @@ class LinearStageControlGUI(QGroupBox):
         if self.update_pos_timer.isActive():
             self.update_pos_timer.stop()
         logging.info("stage control: stop")
+        self.set_status_message('Stop')
         self.lock_movement_buttons()
         self.wait_movement_thread.start()
 
@@ -364,6 +376,7 @@ class LinearStageControlGUI(QGroupBox):
         """ execute referencing process """
         self.lamp.set_yellow()
         logging.info("stage control: referencing")
+        self.set_status_message('Referencing')
         with self.ls_ctl:
             self.ls_ctl.do_referencing()
         self.lock_movement_buttons()
@@ -479,6 +492,8 @@ class LinearStageControlGUI(QGroupBox):
         self.statusLabel = QLabel(self)
         self.statusLabel.setObjectName(u"statusLabel")
         self.statusLabel.setGeometry(QRect(150, 160, 131, 21))
+        self.statusLabel.setFrameShape(QFrame.Box)
+        self.statusLabel.setFrameShadow(QFrame.Plain)
         self.speedSlider = QSlider(self)
         self.speedSlider.setObjectName(u"speedSlider")
         self.speedSlider.setGeometry(QRect(130, 120, 91, 22))
