@@ -16,8 +16,6 @@
 
 # TODO expose more settings of lt_control, reference side, etc.
 
-# TODO maybe do StageControl class and expand it with the magnet stuff??
-
 import functools
 import pathlib
 import logging
