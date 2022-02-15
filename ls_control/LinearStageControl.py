@@ -51,12 +51,13 @@ class LinearStageControl(object):
             try:
                 self._serial_port.port = self.find_com_port()
             except ConnectionError as ce:
-                print('Stepper driver not found!')
+                print('Stage Control: Stepper driver not found!')
                 self._serial_port.port = None
         else:
             self._serial_port.port = portname
         self._serial_port.baudrate = 115200
         self._serial_port.timeout = com_timeout
+        self._serial_port.write_timeout = com_timeout
         self._context_depth = 0
         self._debug = False
         self._connection_error = False
@@ -123,8 +124,12 @@ class LinearStageControl(object):
             while args[0]._is_querying:
                 pass
             args[0]._is_querying = True
-            ret = func(*args, **kwargs)
-            args[0]._is_querying = False
+            try:
+                ret = func(*args, **kwargs)
+            except:
+                raise
+            finally:
+                args[0]._is_querying = False
             return ret
         return wrapper
 
