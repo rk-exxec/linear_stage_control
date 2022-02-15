@@ -16,9 +16,9 @@
 
 import sys
 
-from PySide2.QtCore import QFile
-from PySide2.QtWidgets import QMainWindow, QApplication
-from PySide2.QtUiTools import QUiLoader
+from PySide6.QtCore import QFile
+from PySide6.QtWidgets import QMainWindow, QApplication
+from PySide6.QtUiTools import QUiLoader
 
 
 
