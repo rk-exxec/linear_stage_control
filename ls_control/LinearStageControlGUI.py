@@ -511,8 +511,8 @@ class LinearStageControlGUI(QGroupBox):
         self.speedSpinBox.setGeometry(QRect(230, 120, 41, 21))
         self.speedSpinBox.setButtonSymbols(QAbstractSpinBox.NoButtons)
         self.speedSpinBox.setAccelerated(False)
-        self.speedSpinBox.setDecimals(1)
-        self.speedSpinBox.setMinimum(1.000000000000000)
+        self.speedSpinBox.setDecimals(2)
+        self.speedSpinBox.setMinimum(0.000000000000000)
         self.speedSpinBox.setMaximum(12.500000000000000)
         self.speedSpinBox.setValue(3.000000000000000)
 
