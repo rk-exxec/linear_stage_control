@@ -22,7 +22,7 @@ from PySide6.QtUiTools import QUiLoader
 
 
 
-from . import LinearStageControlGUI
+from ls_control import LinearStageControlGUI
 
 
 def load_ui(ui_file, parent=None):
@@ -44,4 +44,4 @@ if __name__ == "__main__":
     widget.ui = LinearStageControlGUI(widget)
     widget.show()
     # execute qt main loop
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
