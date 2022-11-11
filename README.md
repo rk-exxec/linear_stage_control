@@ -16,7 +16,7 @@ Tested with the movetec L60 and L65 linear stages.
 ![grafik](https://user-images.githubusercontent.com/40037381/105205492-9d02a780-5b45-11eb-8d78-1439f3895b21.png)
 
 Connect controller via USB.  
-Execute program via command line `python -m linear_stage_control`  
+Execute program via command line `python __main.py__`  
 
 
 ### Controls
