@@ -8,7 +8,7 @@ Tested with the movetec L60 and L65 linear stages.
 ## Installation
 
 1. clone or download this repository
-2. install python 3.8.x, make sure it is added to your PATH variable
+2. install python >3.8, make sure it is added to your PATH variable
 3. install packages `pip install -r requirements.txt`
 
 ## GUI Usage 
@@ -16,7 +16,7 @@ Tested with the movetec L60 and L65 linear stages.
 ![grafik](https://user-images.githubusercontent.com/40037381/105205492-9d02a780-5b45-11eb-8d78-1439f3895b21.png)
 
 Connect controller via USB.  
-Execute program via command line `python __main.py__`  
+Execute program via command line `python __main__.py`  
 
 
 ### Controls
