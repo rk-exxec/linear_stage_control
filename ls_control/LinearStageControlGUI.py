@@ -263,6 +263,17 @@ class LinearStageControlGUI(QGroupBox):
         self._mov_speed = self.ls_ctl.mm_to_steps(value)
         self._mov_speed_mm = value
 
+    def update_speed(self, value):
+        """live update the speed of the motor
+
+        :param value: speed in mm/s
+        """
+        # self._mov_speed = self.ls_ctl.mm_to_steps(value)
+        # self._mov_speed_mm = value
+        with self.ls_ctl:
+            self.ls_ctl.command('#1o' + str(self.ls_ctl.mm_to_steps(value)))
+
+
     @Slot(int)
     @if_port_is_active
     def change_ramp_type(self, state: Qt.CheckState):
@@ -294,12 +305,14 @@ class LinearStageControlGUI(QGroupBox):
         elif ret == QMessageBox.Close:
             return False
 
-    def get_position(self):
+    def get_position(self, unit=None):
         """ return the motor position in the current unit """
+        if not unit:
+            unit = self._mov_unit
         with self.ls_ctl:
-            if self._mov_unit == 'steps':
+            if unit == 'steps':
                 return self.ls_ctl.get_position()
-            elif self._mov_unit == 'mm':
+            elif unit == 'mm':
                 return self.ls_ctl.steps_to_mm(self.ls_ctl.get_position())
 
     @Slot()

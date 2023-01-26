@@ -74,6 +74,7 @@ class LinearStageControl(object):
         #     print('Referencing is required!')
 
     def __enter__(self):
+        """ Enter context manager """
         if not self._connection_error:
             try:
                 if self._context_depth == 0 and not self._serial_port.port is None and not self._serial_port.is_open:
@@ -85,13 +86,14 @@ class LinearStageControl(object):
                 logging.error("stage control: error entering context: \n" + str(ex))
                 raise  
             self._context_depth += 1
-            logging.debug(f"stage control: entered context at level {self._context_depth}")
+            # logging.debug(f"stage control: entered context at level {self._context_depth}")
             return self
         else:
             return None
 
     def __exit__(self, exc, value, trace):
-        logging.debug(f"stage control: leaving context from level {self._context_depth}")
+        """ Exit context manager """
+        # logging.debug(f"stage control: leaving context from level {self._context_depth}")
         self._context_depth -= 1
         if self._context_depth == 0:
             self._serial_port.close()
@@ -101,6 +103,7 @@ class LinearStageControl(object):
         return True
 
     def error_outside_context(func):
+        """ Function wrapper to ensure function is executed inside any context."""
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0]._context_depth == 0:
@@ -109,6 +112,7 @@ class LinearStageControl(object):
         return wrapper
 
     def error_inside_context(func):
+        """ Function wrapper to ensure function is not executed inside any context."""
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0]._context_depth != 0:
@@ -117,6 +121,8 @@ class LinearStageControl(object):
         return wrapper
 
     def atomic_section(func):
+        """ Function wrapper. Any function wrapped by this can only be run one at a time.
+        Used to prevent multiple queries from running at once. """
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0]._is_querying:
@@ -135,6 +141,7 @@ class LinearStageControl(object):
 
     @staticmethod
     def find_com_port() -> str:
+        """ Try to locate serial port the stepper driver is connected to and return its address"""
         lst = comports()
         for port in lst:
             if port.manufacturer == 'Nanotec':
@@ -251,7 +258,7 @@ class LinearStageControl(object):
         """
         #extract int value and mask only useful 4 bits
         tmp = self.query('#1$')
-        logging.debug("stage control: fetched status: " + tmp)
+        # logging.debug("stage control: fetched status: " + tmp)
         if tmp[-1] != '?':
             tmp = int(tmp.split("$")[-1][-3:],16)
             #tmp = int(tmp)
@@ -267,7 +274,7 @@ class LinearStageControl(object):
         :rtype: Boolean
         """
         ans = self.fetch_status()
-        if ans & 1:
+        if ans and ans & 1:
             return True
         else:
             return False
@@ -483,9 +490,14 @@ class LinearStageControl(object):
 
         :returns: absolute position in steps
         """
-        real_pos = int(self.query('#1C')[2:])
-        if self._reference_point == 'far':
-            disp_pos = real_pos
-        else:
-            disp_pos = real_pos + 50000
-        return disp_pos
+        ans = self.query('#1C')
+        try:
+            real_pos = int(ans[2:])
+            if self._reference_point == 'far':
+                disp_pos = real_pos
+            else:
+                disp_pos = real_pos + 50000
+            return disp_pos
+        except (TypeError, ValueError) as ex:
+            logging.error(f"Position Query error: {ans=}\n{str(ex)}", exc_info=ex)
+            raise
