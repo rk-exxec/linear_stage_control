@@ -43,7 +43,7 @@ class LinearStageControl(object):
     :param com_timeout: Timeout in sek for serial port
     """
     def __init__(self, portname='auto', reference='near', com_timeout=0.2):
-
+        self.logger = logging.getLogger()
         signal.signal(signal.SIGINT, self.sig_handler)
         signal.signal(signal.SIGTERM, self.sig_handler)
         self._serial_port = serial.Serial()
@@ -83,23 +83,23 @@ class LinearStageControl(object):
                     self._serial_port.open()
             except ConnectionError as ex:
                 self._connection_error = True
-                logging.error("stage control: error entering context: \n" + str(ex))
+                self.logger.error("stage control: error entering context: \n" + str(ex))
                 raise  
             self._context_depth += 1
-            # logging.debug(f"stage control: entered context at level {self._context_depth}")
+            # self.logger.debug(f"stage control: entered context at level {self._context_depth}")
             return self
         else:
             return None
 
     def __exit__(self, exc, value, trace):
         """ Exit context manager """
-        # logging.debug(f"stage control: leaving context from level {self._context_depth}")
+        # self.logger.debug(f"stage control: leaving context from level {self._context_depth}")
         self._context_depth -= 1
         if self._context_depth == 0:
             self._serial_port.close()
         if exc:
             if exc is type(ConnectionError): self._connection_error = True
-            logging.error("".join(traceback.format_exception(etype=exc, value=value, tb=trace)))
+            self.logger.error("".join(traceback.format_exception(exc, value=value, tb=trace)))
         return True
 
     def error_outside_context(func):
@@ -126,7 +126,7 @@ class LinearStageControl(object):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0]._is_querying:
-                logging.debug("stage control: atomic section waiting for clear")
+                self.logger.debug("stage control: atomic section waiting for clear")
             while args[0]._is_querying:
                 pass
             args[0]._is_querying = True
@@ -258,7 +258,7 @@ class LinearStageControl(object):
         """
         #extract int value and mask only useful 4 bits
         tmp = self.query('#1$')
-        # logging.debug("stage control: fetched status: " + tmp)
+        # self.logger.debug("stage control: fetched status: " + tmp)
         if tmp[-1] != '?':
             tmp = int(tmp.split("$")[-1][-3:],16)
             #tmp = int(tmp)
@@ -438,7 +438,7 @@ class LinearStageControl(object):
         :param speed: Speed in steps/s
         """
         if not self.is_referenced():
-            logging.error("lt_control: move_absolute(): not referenced!")
+            self.logger.error("lt_control: move_absolute(): not referenced!")
             return
         if abs(steps) > 50000:
             print('Absolute Movement: Too many steps!')
@@ -499,5 +499,5 @@ class LinearStageControl(object):
                 disp_pos = real_pos + 50000
             return disp_pos
         except (TypeError, ValueError) as ex:
-            logging.error(f"Position Query error: {ans=}\n{str(ex)}", exc_info=ex)
+            self.logger.error(f"Position Query error: {ans=}\n{str(ex)}", exc_info=ex)
             raise

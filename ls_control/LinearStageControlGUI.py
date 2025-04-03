@@ -113,6 +113,7 @@ class LinearStageControlGUI(QGroupBox):
     """
     def __init__(self, parent=None) -> None:
         super(LinearStageControlGUI, self).__init__(parent)
+        self.logger = logging.getLogger()
         self.ls_ctl = LinearStageControl()
         self.setupUI()
         self._shown = False
@@ -124,7 +125,7 @@ class LinearStageControlGUI(QGroupBox):
         self._invalid = False
         self.wait_movement_thread = CallbackWorker(self.wait_movement, slotOnFinished=self.finished_moving)
         self.update_pos_timer = CustomCallbackTimer(self.update_pos, 250)
-        logging.debug("initialized stage control")
+        self.logger.debug("initialized stage control")
 
     def __del__(self):
         del self.ls_ctl
@@ -152,7 +153,7 @@ class LinearStageControlGUI(QGroupBox):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0].ls_ctl.has_connection_error():
-                logging.warning("stage control: device not ready")
+                self.logger.warning("stage control: device not ready")
                 return null(*args, **kwargs)
             else:
                 return func(*args, **kwargs)
@@ -187,18 +188,18 @@ class LinearStageControlGUI(QGroupBox):
                     self.set_status_message('Referencing needed!')
                     self.unlock_movement_buttons()
                     self.lock_abs_pos_buttons()
-                    logging.info("stage control: no reference! locking absolute movement")
+                    self.logger.info("stage control: no reference! locking absolute movement")
                     return True
                 elif self.ls_ctl.is_control_ready():
                     self.lamp.set_green()
                     self.set_status_message('Ready')
                     self.unlock_movement_buttons()
-                    logging.info("stage control: has reference! unlocking absolute movement")
+                    self.logger.info("stage control: has reference! unlocking absolute movement")
                     return True
                 else:
                     self.lamp.set_red()
                     self.set_status_message('Connection Error!')
-                    logging.warning("stage control: connection error")
+                    self.logger.warning("stage control: connection error")
                     self.lock_movement_buttons()
                     return False
             except TimeoutError as te:
@@ -225,7 +226,7 @@ class LinearStageControlGUI(QGroupBox):
                 self.posSpinBox.setValue(self.ls_ctl.mm_to_steps(self.posSpinBox.value()))
         else:
             return
-        logging.info(f"stage control: movement unit changed from {self._old_unit} to {self._mov_unit}")
+        self.logger.info(f"stage control: movement unit changed from {self._old_unit} to {self._mov_unit}")
         self._old_unit = self._mov_unit
 
     @Slot(float)
@@ -281,18 +282,18 @@ class LinearStageControlGUI(QGroupBox):
         if state == Qt.Checked:
             with self.ls_ctl:
                 self.ls_ctl.set_soft_ramp()
-            logging.info("stage control: set soft ramp")
+            self.logger.info("stage control: set soft ramp")
         elif state == Qt.Unchecked:
             with self.ls_ctl:
                 self.ls_ctl.set_quick_ramp()
-                logging.info("stage control: set quick ramp")
+                self.logger.info("stage control: set quick ramp")
         else:
             pass
 
 
     def do_timeout_dialog(self) -> bool:
         """ display a dialog if the connection timed out """
-        msgBox = QMessageBox()
+        msgBox = QMessageBox(self)
         msgBox.setText("The connection timed out")
         msgBox.setInformativeText("Could not connect ot the stepper driver!")
         msgBox.setStandardButtons(QMessageBox.Retry | QMessageBox.Abort | QMessageBox.Close)
@@ -318,7 +319,7 @@ class LinearStageControlGUI(QGroupBox):
     @Slot()
     def jog_up_start(self):
         """ start motor movement away from motor """
-        logging.info("stage control: start jog up")
+        self.logger.info("stage control: start jog up")
         self.set_status_message('Jogging')
         with self.ls_ctl:
             self.ls_ctl.move_inf_start(0, speed=self._mov_speed)
@@ -327,7 +328,7 @@ class LinearStageControlGUI(QGroupBox):
     @Slot()
     def jog_down_start(self):
         """ start motor movement towards motor """
-        logging.info("stage control: start jog down")
+        self.logger.info("stage control: start jog down")
         self.set_status_message('Jogging')
         with self.ls_ctl:
             self.ls_ctl.move_inf_start(1, speed=self._mov_speed)
@@ -342,7 +343,7 @@ class LinearStageControlGUI(QGroupBox):
             elif self._mov_unit == 'steps':
                 self.ls_ctl.move_absolute(int(self._mov_dist), speed=self._mov_speed)
         self.lock_movement_buttons()
-        logging.info(f"stage control: start movement to {self._mov_dist} {self._mov_unit}")
+        self.logger.info(f"stage control: start movement to {self._mov_dist} {self._mov_unit}")
         self.set_status_message(f'Moving to {self._mov_dist} {self._mov_unit}')
         self.wait_movement_thread.start()
 
@@ -353,7 +354,7 @@ class LinearStageControlGUI(QGroupBox):
             self.ls_ctl.stop()
         if self.update_pos_timer.isActive():
             self.update_pos_timer.stop()
-        logging.info("stage control: stop")
+        self.logger.info("stage control: stop")
         self.set_status_message('Stop')
         self.update_pos()
         self.update_motor_status()
@@ -365,7 +366,7 @@ class LinearStageControlGUI(QGroupBox):
             self.ls_ctl.stop_soft()
         if self.update_pos_timer.isActive():
             self.update_pos_timer.stop()
-        logging.info("stage control: stop")
+        self.logger.info("stage control: stop")
         self.set_status_message('Stop')
         self.lock_movement_buttons()
         self.wait_movement_thread.start()
@@ -378,7 +379,7 @@ class LinearStageControlGUI(QGroupBox):
     def finished_moving(self):
         """ update ui position displays when movement finishes """
         # callback for when the motor stops moving (only absolute and relative, and jogging with soft stop)
-        logging.info("stage control: reached pos")
+        self.logger.info("stage control: reached pos")
         self.update_pos()
         self.update_motor_status()
 
@@ -386,7 +387,7 @@ class LinearStageControlGUI(QGroupBox):
     def reference(self):
         """ execute referencing process """
         self.lamp.set_yellow()
-        logging.info("stage control: referencing")
+        self.logger.info("stage control: referencing")
         self.set_status_message('Referencing')
         with self.ls_ctl:
             self.ls_ctl.do_referencing()
