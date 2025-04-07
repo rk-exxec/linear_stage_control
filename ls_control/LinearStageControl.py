@@ -47,21 +47,23 @@ class LinearStageControl(object):
         signal.signal(signal.SIGINT, self.sig_handler)
         signal.signal(signal.SIGTERM, self.sig_handler)
         self._serial_port = serial.Serial()
+        self._connection_error = False        
+        self._serial_port.baudrate = 115200
+        self._serial_port.timeout = com_timeout
+        self._serial_port.write_timeout = com_timeout        
         if portname == 'auto':
             try:
                 self._serial_port.port = self.find_com_port()
             except ConnectionError as ce:
                 print('Stage Control: Stepper driver not found!')
                 self._serial_port.port = None
+                self._connection_error = True
         else:
             self._serial_port.port = portname
-        self._serial_port.baudrate = 115200
-        self._serial_port.timeout = com_timeout
-        self._serial_port.write_timeout = com_timeout
+
         self._context_depth = 0
         self._debug = False
-        self._connection_error = False
-        self._substeps = 8 #does not do anything right now, for future
+        self._substeps = 8 #is referenced for mm conversion, is applied during self.setup_defaults()
         self._reference_point = reference
         self._reference_changed = False
         self._status = 1
@@ -69,7 +71,7 @@ class LinearStageControl(object):
         self._killswitch_wait = False
         self._wait_mov_fin_thread = threading.Thread(target=self.wait_movement)
         self._is_querying = False
-        #self.setup_defaults()
+        # self.setup_defaults()
         # if not self.is_referenced():
         #     print('Referencing is required!')
 
@@ -84,11 +86,12 @@ class LinearStageControl(object):
             except ConnectionError as ex:
                 self._connection_error = True
                 self.logger.error("stage control: error entering context: \n" + str(ex))
-                raise  
+                raise  #
             self._context_depth += 1
-            # self.logger.debug(f"stage control: entered context at level {self._context_depth}")
+        # self.logger.debug(f"stage control: entered context at level {self._context_depth}")
             return self
         else:
+            self.logger.warning("stage control: connection error, port not open!")
             return None
 
     def __exit__(self, exc, value, trace):
@@ -98,8 +101,11 @@ class LinearStageControl(object):
         if self._context_depth == 0:
             self._serial_port.close()
         if exc:
-            if exc is type(ConnectionError): self._connection_error = True
-            self.logger.error("".join(traceback.format_exception(exc, value=value, tb=trace)))
+            if self._connection_error:
+                self.logger.error("stage control: command not executed, connection error!")
+            else:
+                if exc is type(ConnectionError): self._connection_error = True
+                self.logger.error("".join(traceback.format_exception(exc, value=value, tb=trace)))
         return True
 
     def error_outside_context(func):
@@ -126,7 +132,7 @@ class LinearStageControl(object):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0]._is_querying:
-                self.logger.debug("stage control: atomic section waiting for clear")
+                args[0].logger.debug("stage control: atomic section waiting for clear")
             while args[0]._is_querying:
                 pass
             args[0]._is_querying = True
@@ -242,7 +248,7 @@ class LinearStageControl(object):
             return True
         else:
             return False
-
+        
     def setup_defaults(self):
         self.command(f'#1g{self._substeps}') # microstepping
 

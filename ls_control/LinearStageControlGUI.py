@@ -115,6 +115,8 @@ class LinearStageControlGUI(QGroupBox):
         super(LinearStageControlGUI, self).__init__(parent)
         self.logger = logging.getLogger()
         self.ls_ctl = LinearStageControl()
+        with self.ls_ctl:
+            self.ls_ctl.setup_defaults()
         self.setupUI()
         self._shown = False
         self._mov_dist: float = 0
@@ -153,7 +155,7 @@ class LinearStageControlGUI(QGroupBox):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0].ls_ctl.has_connection_error():
-                self.logger.warning("stage control: device not ready")
+                args[0].logger.warning("stage control: device not ready")
                 return null(*args, **kwargs)
             else:
                 return func(*args, **kwargs)
