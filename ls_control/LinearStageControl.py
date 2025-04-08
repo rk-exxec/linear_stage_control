@@ -55,7 +55,7 @@ class LinearStageControl(object):
             try:
                 self._serial_port.port = self.find_com_port()
             except ConnectionError as ce:
-                print('Stage Control: Stepper driver not found!')
+                self.logger.error('Stage Control: Stepper driver not found!')
                 self._serial_port.port = None
                 self._connection_error = True
         else:
