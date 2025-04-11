@@ -249,8 +249,13 @@ class LinearStageControl(object):
         else:
             return False
         
-    def setup_defaults(self):
-        self.command(f'#1g{self._substeps}') # microstepping
+    def read_substeps(self):
+        substeps = self.query('#1Zg')
+        substeps = int(substeps.split('g')[-1].strip())
+        self._substeps = substeps
+        # if substeps != self._substeps:
+        #     self.command(f"#1g{self._substeps}")
+        #     self._reference_changed = True
 
 
     def fetch_status(self):
@@ -314,18 +319,6 @@ class LinearStageControl(object):
             ans = ans[2:] # extract position
             self.query('#1D' + ans) # clear error and set position
 
-    def get_position(self):
-        """
-        Read the current position from the controller
-
-        :returns: the position as int
-        """
-        ans = self.query('#1C')
-        ans = ans[2:] # extract position
-        if not self._reference_point == 'far':
-            return ans + 50000
-        else:
-            return ans
 
     def set_soft_ramp(self):
         """

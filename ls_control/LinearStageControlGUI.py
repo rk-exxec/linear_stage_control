@@ -116,7 +116,7 @@ class LinearStageControlGUI(QGroupBox):
         self.logger = logging.getLogger()
         self.ls_ctl = LinearStageControl()
         with self.ls_ctl:
-            self.ls_ctl.setup_defaults()
+            self.ls_ctl.read_substeps()
         self.setupUI()
         self._shown = False
         self._mov_dist: float = 0
@@ -164,9 +164,9 @@ class LinearStageControlGUI(QGroupBox):
     def showEvent(self, event: QShowEvent):
         if not self._shown:
             self.connect_signals()
+            self.mag_mov_unit_changed('mm')
             self.update_motor_status()
             self.update_pos()
-            self.mag_mov_unit_changed('mm')
             self.change_ramp_type(self.softRampChk.isChecked())
             self._shown = True
             return True
@@ -214,18 +214,19 @@ class LinearStageControlGUI(QGroupBox):
     def mag_mov_unit_changed(self, unit: str):
         """ update slider and spin box if the movement units has changes """
         self._mov_unit = unit.strip()
+        old_val = self.posSpinBox.value()
         if unit == 'mm':
             self.posSlider.setMaximum(3906) #max mm are 39.0625
             self.posSlider.setTickInterval(100)
             self.posSpinBox.setDecimals(2)
             if self._old_unit == 'steps':
-                self.posSpinBox.setValue(self.ls_ctl.steps_to_mm(self.posSpinBox.value()))
+                self.posSpinBox.setValue(self.ls_ctl.steps_to_mm(old_val))
         elif unit == 'steps':
             self.posSlider.setMaximum(50000)
             self.posSlider.setTickInterval(1000)
             self.posSpinBox.setDecimals(0)
             if self._old_unit == 'mm':
-                self.posSpinBox.setValue(self.ls_ctl.mm_to_steps(self.posSpinBox.value()))
+                self.posSpinBox.setValue(self.ls_ctl.mm_to_steps(old_val))
         else:
             return
         self.logger.info(f"stage control: movement unit changed from {self._old_unit} to {self._mov_unit}")
