@@ -364,13 +364,18 @@ class LinearStageControl(object):
         """
         Wait for movement ot finish.
         """
-        while not self.is_control_ready():
+        status = self.fetch_status()
+        # 1 means stopped and ready, 4 means error
+        while not status & 1 and not status & 4:
             time.sleep(0.1)
+            status = self.fetch_status()
         if self.has_positioning_error():
             # in endschalter gelaufen
             # reset position
             #self.stop()
-            self.clear_positioning_error()
+            # self.clear_positioning_error()
+            self.logger.warning('Movement error. Try referencing again!')
+            self._reference_changed = True
             #print('Movement ended prematurely!')
 
     def stop(self):
