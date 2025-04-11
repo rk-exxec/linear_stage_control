@@ -19,11 +19,15 @@ import sys
 from PySide6.QtCore import QFile
 from PySide6.QtWidgets import QMainWindow, QApplication
 from PySide6.QtUiTools import QUiLoader
-
-
+from rich.logging import RichHandler
+import logging
 
 from ls_control import LinearStageControlGUI
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    handlers=[RichHandler()],
+)
 
 def load_ui(ui_file, parent=None):
     loader = QUiLoader()

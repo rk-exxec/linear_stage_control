@@ -206,7 +206,7 @@ class LinearStageControl(object):
         :rtype: String
         """
         msg = message + '\r'
-        if self._debug: print(message)
+        if self._debug: self.logger.debug(message)
         #with self._serial_port:
         if not self._connection_error:
             self._serial_port.write(msg.encode())
@@ -214,7 +214,7 @@ class LinearStageControl(object):
             if len(ans) == 0:
                 raise TimeoutError('Port Timeout!')
             else:
-                if self._debug: print(ans.strip())
+                if self._debug: self.logger.debug(ans.strip())
                 return ans.strip()
         else: 
             raise ConnectionError("Connection Failed!")
@@ -400,7 +400,7 @@ class LinearStageControl(object):
         """
         self._reference_point = reference
         self._reference_changed = True
-        print('Please reference motor again!')
+        self.logger.warning('Please reference motor again!')
 
     def do_referencing(self):
         """
