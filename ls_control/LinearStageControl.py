@@ -154,6 +154,11 @@ class LinearStageControl(object):
                 return port.device
         else:
             raise ConnectionError('SMCI33-1 stepper driver not found!')
+        
+    def close_port(self):
+        """ Close serial port if open """
+        if self._serial_port.is_open:
+            self._serial_port.close()
 
     def has_connection_error(self):
         return self._connection_error

@@ -114,9 +114,6 @@ class LinearStageControlGUI(QGroupBox):
     def __init__(self, parent=None) -> None:
         super(LinearStageControlGUI, self).__init__(parent)
         self.logger = logging.getLogger()
-        self.ls_ctl = LinearStageControl()
-        with self.ls_ctl:
-            self.ls_ctl.read_substeps()
         self.setupUI()
         self._shown = False
         self._mov_dist: float = 0
@@ -127,6 +124,8 @@ class LinearStageControlGUI(QGroupBox):
         self._invalid = False
         self.wait_movement_thread = CallbackWorker(self.wait_movement, slotOnFinished=self.finished_moving)
         self.update_pos_timer = CustomCallbackTimer(self.update_pos, 250)
+        self.ls_ctl: LinearStageControl = None
+        self.initialize()
         self.logger.debug("initialized stage control")
 
     def __del__(self):
@@ -147,6 +146,7 @@ class LinearStageControlGUI(QGroupBox):
         self.speedSlider.sliderMoved.connect(self.speed_slider_moved)
         self.speedSpinBox.valueChanged.connect(self.speed_spin_box_val_changed)
 
+    
     def if_port_is_active(func):
         """ Decorator that only executes fcn if serial port is open, otherwise it fails silently """
         def null(*args, **kwargs):
@@ -155,7 +155,7 @@ class LinearStageControlGUI(QGroupBox):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if args[0].ls_ctl.has_connection_error():
-                args[0].logger.warning("stage control: device not ready")
+                args[0].logger.debug("Device not ready")
                 return null(*args, **kwargs)
             else:
                 return func(*args, **kwargs)
@@ -167,9 +167,28 @@ class LinearStageControlGUI(QGroupBox):
             self.mag_mov_unit_changed('mm')
             self.update_motor_status()
             self.update_pos()
-            self.change_ramp_type(self.softRampChk.isChecked())
+            # self.change_ramp_type(self.softRampChk.isChecked())
             self._shown = True
             return True
+        
+    def initialize(self):
+        """ Create control instance and check for status """
+        if self.ls_ctl is not None: 
+            self.ls_ctl.close_port()
+            del self.ls_ctl
+            self.ls_ctl = None
+        self.lamp.set_error()
+        self.set_status_message('Not connected!')
+        self.ls_ctl = LinearStageControl()
+        if self.ls_ctl.has_connection_error():
+            self.logger.error("Motor not found!")
+            return
+        
+        with self.ls_ctl:
+            self.ls_ctl.read_substeps()
+        self.change_ramp_type(self.softRampChk.isChecked())
+        self.update_motor_status()
+        self.update_pos()
 
     @if_port_is_active
     def update_pos(self):
@@ -267,6 +286,7 @@ class LinearStageControlGUI(QGroupBox):
         self._mov_speed = self.ls_ctl.mm_to_steps(value)
         self._mov_speed_mm = value
 
+    @if_port_is_active
     def update_speed(self, value):
         """live update the speed of the motor
 
@@ -320,6 +340,7 @@ class LinearStageControlGUI(QGroupBox):
                 return self.ls_ctl.steps_to_mm(self.ls_ctl.get_position())
 
     @Slot()
+    @if_port_is_active
     def jog_up_start(self):
         """ start motor movement away from motor """
         self.logger.info("stage control: start jog up")
@@ -328,7 +349,8 @@ class LinearStageControlGUI(QGroupBox):
             self.ls_ctl.move_inf_start(0, speed=self._mov_speed)
         self.update_pos_timer.start()
 
-    @Slot()
+    @Slot()#
+    @if_port_is_active
     def jog_down_start(self):
         """ start motor movement towards motor """
         self.logger.info("stage control: start jog down")
@@ -338,6 +360,7 @@ class LinearStageControlGUI(QGroupBox):
         self.update_pos_timer.start()
 
     @Slot()
+    @if_port_is_active
     def move_pos(self):
         """ move motor to specified position """
         with self.ls_ctl:
@@ -351,6 +374,7 @@ class LinearStageControlGUI(QGroupBox):
         self.wait_movement_thread.start()
 
     @Slot()
+    @if_port_is_active
     def motor_stop(self):
         """ stop motor immediately"""
         with self.ls_ctl:
@@ -363,6 +387,7 @@ class LinearStageControlGUI(QGroupBox):
         self.update_motor_status()
 
     @Slot()
+    @if_port_is_active
     def motor_stop_soft(self):
         """ stops motor with brake ramp """
         with self.ls_ctl:
@@ -387,6 +412,7 @@ class LinearStageControlGUI(QGroupBox):
         self.update_motor_status()
 
     @Slot()
+    @if_port_is_active
     def reference(self):
         """ execute referencing process """
         self.lamp.set_yellow()
