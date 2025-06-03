@@ -334,6 +334,8 @@ class LinearStageControlGUI(QGroupBox):
                 return self.ls_ctl.get_position()
             elif unit == 'mm':
                 return self.ls_ctl.steps_to_mm(self.ls_ctl.get_position())
+            else:
+                raise ValueError(f"Unsupported unit: {unit}")
 
     @Slot()
     @if_port_is_active
@@ -572,3 +574,4 @@ class LinearStageControlGUI(QGroupBox):
         self.label.setText(QCoreApplication.translate("ctl_widget", u"Speed (mm/s):", None))
 
         self.statusLabel.setText("")
+
