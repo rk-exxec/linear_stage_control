@@ -316,17 +316,10 @@ class LinearStageControlGUI(QGroupBox):
 
     def do_timeout_dialog(self) -> bool:
         """ display a dialog if the connection timed out """
-        msgBox = QMessageBox(self)
-        msgBox.setText("The connection timed out")
-        msgBox.setInformativeText("Could not connect ot the stepper driver!")
-        msgBox.setStandardButtons(QMessageBox.Retry | QMessageBox.Abort | QMessageBox.Close)
-        msgBox.setDefaultButton(QMessageBox.Retry)
-        ret = msgBox.exec_()
-        if ret == QMessageBox.Retry:
+        ret = QMessageBox.critical(self, "Connection timeout!", "Could not connect ot the stepper driver! Retry?", buttons=QMessageBox.StandardButton.Abort|QMessageBox.StandardButton.Retry)
+        if ret == QMessageBox.StandardButton.Retry:
             return True
-        elif ret == QMessageBox.Abort:
-            return False
-        elif ret == QMessageBox.Close:
+        else:
             return False
 
     def get_position(self, unit=None):
