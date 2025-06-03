@@ -21,9 +21,12 @@ import pathlib
 import logging
 from enum import Enum, auto
 
-from PySide6.QtCore import *
-from PySide6.QtGui import *
-from PySide6.QtWidgets import *
+from PySide6.QtCore import QTimer, QThread, QRect, QSize, Qt, QCoreApplication, Slot
+from PySide6.QtGui import QPainter, QPaintEvent, QIcon, QFont, QShowEvent
+from PySide6.QtWidgets import (
+    QWidget, QGroupBox, QPushButton, QCheckBox, QSlider, QDoubleSpinBox, QAbstractSpinBox,
+    QComboBox, QLabel, QFrame, QMessageBox
+)
 
 from .LinearStageControl import LinearStageControl
 
@@ -92,17 +95,17 @@ class LightWidget(QWidget):
 
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if self._color == LightColor.RED:
-            painter.setBrush(Qt.red)
+            painter.setBrush(Qt.GlobalColor.red)
         elif self._color == LightColor.GREEN:
-            painter.setBrush(Qt.green)
+            painter.setBrush(Qt.GlobalColor.green)
         elif self._color == LightColor.ERROR:
-            painter.setBrush(Qt.darkRed)
+            painter.setBrush(Qt.GlobalColor.darkRed)
         elif self._color == LightColor.YELLOW:
-            painter.setBrush(Qt.yellow)
+            painter.setBrush(Qt.GlobalColor.yellow)
         else:
-            painter.setBrush(Qt.gray)
+            painter.setBrush(Qt.GlobalColor.gray)
         painter.drawEllipse(2,2,self.width()-4, self.height()-4)
         painter.end()
 
@@ -298,15 +301,15 @@ class LinearStageControlGUI(QGroupBox):
             self.ls_ctl.command('#1o' + str(self.ls_ctl.mm_to_steps(value)))
 
 
-    @Slot(int)
+    @Slot(Qt.CheckState)
     @if_port_is_active
     def change_ramp_type(self, state: Qt.CheckState):
         """ set motor brake and accel ramp on check changed """
-        if state == Qt.Checked:
+        if state == Qt.CheckState.Checked:
             with self.ls_ctl:
                 self.ls_ctl.set_soft_ramp()
             self.logger.info("stage control: set soft ramp")
-        elif state == Qt.Unchecked:
+        elif state == Qt.CheckState.Unchecked:
             with self.ls_ctl:
                 self.ls_ctl.set_quick_ramp()
                 self.logger.info("stage control: set quick ramp")
@@ -472,16 +475,16 @@ class LinearStageControlGUI(QGroupBox):
         self.jogUpBtn = QPushButton(self)
         self.jogUpBtn.setObjectName(u"jogUpBtn")
         self.jogUpBtn.setGeometry(QRect(10, 20, 71, 23))
-        self.jogUpBtn.setLayoutDirection(Qt.LeftToRight)
+        self.jogUpBtn.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         icon = QIcon()
         path = pathlib.Path(__file__).parent.absolute().resolve()
-        icon.addFile(f"{path}/../qt/up.svg", QSize(), QIcon.Normal, QIcon.Off)
+        icon.addFile(f"{path}/../qt/up.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.jogUpBtn.setIcon(icon)
         self.jogDownBtn = QPushButton(self)
         self.jogDownBtn.setObjectName(u"jogDownBtn")
         self.jogDownBtn.setGeometry(QRect(10, 50, 71, 23))
         icon1 = QIcon()
-        icon1.addFile(f"{path}/../qt/down.svg", QSize(), QIcon.Normal, QIcon.Off)
+        icon1.addFile(f"{path}/../qt/down.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.jogDownBtn.setIcon(icon1)
         self.stopBtn = QPushButton(self)
         self.stopBtn.setObjectName(u"stopBtn")
@@ -507,13 +510,13 @@ class LinearStageControlGUI(QGroupBox):
         self.posSlider.setGeometry(QRect(10, 50, 141, 22))
         self.posSlider.setMaximum(50000)
         self.posSlider.setTracking(True)
-        self.posSlider.setOrientation(Qt.Horizontal)
-        self.posSlider.setTickPosition(QSlider.TicksAbove)
+        self.posSlider.setOrientation(Qt.Orientation.Horizontal)
+        self.posSlider.setTickPosition(QSlider.TickPosition.TicksAbove)
         self.posSlider.setTickInterval(1000)
         self.posSpinBox = QDoubleSpinBox(self.groupBox_2)
         self.posSpinBox.setObjectName(u"posSpinBox")
         self.posSpinBox.setGeometry(QRect(10, 20, 41, 21))
-        self.posSpinBox.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.posSpinBox.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.posSpinBox.setAccelerated(False)
         self.posSpinBox.setDecimals(0)
         self.posSpinBox.setMaximum(50000.000000000000000)
@@ -526,8 +529,8 @@ class LinearStageControlGUI(QGroupBox):
         self.statusLabel = QLabel(self)
         self.statusLabel.setObjectName(u"statusLabel")
         self.statusLabel.setGeometry(QRect(150, 160, 131, 21))
-        self.statusLabel.setFrameShape(QFrame.Box)
-        self.statusLabel.setFrameShadow(QFrame.Plain)
+        self.statusLabel.setFrameShape(QFrame.Shape.Box)
+        self.statusLabel.setFrameShadow(QFrame.Shadow.Plain)
         self.speedSlider = QSlider(self)
         self.speedSlider.setObjectName(u"speedSlider")
         self.speedSlider.setGeometry(QRect(130, 120, 91, 22))
@@ -535,17 +538,17 @@ class LinearStageControlGUI(QGroupBox):
         self.speedSlider.setMaximum(120)
         self.speedSlider.setPageStep(10)
         self.speedSlider.setValue(30)
-        self.speedSlider.setOrientation(Qt.Horizontal)
+        self.speedSlider.setOrientation(Qt.Orientation.Horizontal)
         self.speedSlider.setInvertedAppearance(False)
         self.speedSlider.setInvertedControls(False)
-        self.speedSlider.setTickPosition(QSlider.TicksAbove)
+        self.speedSlider.setTickPosition(QSlider.TickPosition.TicksAbove)
         self.label = QLabel(self)
         self.label.setObjectName(u"label")
         self.label.setGeometry(QRect(130, 100, 71, 16))
         self.speedSpinBox = QDoubleSpinBox(self)
         self.speedSpinBox.setObjectName(u"speedSpinBox")
         self.speedSpinBox.setGeometry(QRect(230, 120, 41, 21))
-        self.speedSpinBox.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.speedSpinBox.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.speedSpinBox.setAccelerated(False)
         self.speedSpinBox.setDecimals(2)
         self.speedSpinBox.setMinimum(0.000000000000000)
