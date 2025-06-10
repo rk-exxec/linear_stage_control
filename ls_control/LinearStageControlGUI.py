@@ -193,6 +193,27 @@ class LinearStageControlGUI(QGroupBox):
         self.update_motor_status()
         self.update_pos()
 
+    @property
+    def cur_pos_mm(self):
+        with self.ls_ctl:
+            return self.ls_ctl.steps_to_mm(self.cur_pos_step)
+        
+    def refresh_position(self):
+        with self.ls_ctl:
+            self.cur_pos_step = self.ls_ctl.get_position()
+
+    def get_position(self, unit=None):
+        """ return the motor position in the current unit """
+        if not unit:
+            unit = self._mov_unit
+        self.refresh_position()
+        if unit == 'steps':
+            return self.cur_pos_step
+        elif unit == 'mm':
+            return self.cur_pos_mm
+        else:
+            raise ValueError(f"Unsupported unit: {unit}")
+
     @if_port_is_active
     def update_pos(self):
         """ update spin box with current pos"""
@@ -324,18 +345,6 @@ class LinearStageControlGUI(QGroupBox):
             return True
         else:
             return False
-
-    def get_position(self, unit=None):
-        """ return the motor position in the current unit """
-        if not unit:
-            unit = self._mov_unit
-        with self.ls_ctl:
-            if unit == 'steps':
-                return self.ls_ctl.get_position()
-            elif unit == 'mm':
-                return self.ls_ctl.steps_to_mm(self.ls_ctl.get_position())
-            else:
-                raise ValueError(f"Unsupported unit: {unit}")
 
     @Slot()
     @if_port_is_active
