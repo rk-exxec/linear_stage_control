@@ -429,7 +429,7 @@ class LinearStageControl(object):
         :param speed: Speed in steps/s (max 16000)
         """
         if abs(steps) > 50000:
-            print("Relative Movement: Too many steps!")
+            self.logger.error("lt_control: Relative Movement: Out of range!")
             return
         if self._reference_point == 'far':
             self.command('#1d1')
@@ -450,7 +450,7 @@ class LinearStageControl(object):
             self.logger.error("lt_control: move_absolute(): not referenced!")
             return
         if abs(steps) > 50000:
-            print('Absolute Movement: Too many steps!')
+            self.logger.error('lt_control: Absolute Movement: Out of range!')
             return
         if not self._reference_point == 'far':
             steps = steps - 50000
