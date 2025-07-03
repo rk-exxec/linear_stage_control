@@ -21,7 +21,7 @@ import serial
 import time
 import logging
 from decimal import Decimal
-import threading
+# import threading
 import signal
 import sys
 
@@ -69,7 +69,7 @@ class LinearStageControl(object):
         self._status = 1
         self._positioning_error = 0
         self._killswitch_wait = False
-        self._wait_mov_fin_thread = threading.Thread(target=self.wait_movement)
+        # self._wait_mov_fin_thread = threading.Thread(target=self.wait_movement)
         self._is_querying = False
         # self.setup_defaults()
         # if not self.is_referenced():

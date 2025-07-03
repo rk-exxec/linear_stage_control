@@ -20,6 +20,7 @@ import functools
 import pathlib
 import logging
 from enum import Enum, auto
+import threading
 
 from PySide6.QtCore import QTimer, QThread, QRect, QSize, Qt, QCoreApplication, Slot
 from PySide6.QtGui import QPainter, QPaintEvent, QIcon, QFont, QShowEvent
@@ -50,6 +51,7 @@ class CallbackWorker(QThread):
             self.finished.connect(slotOnFinished)
 
     def run(self):
+        threading.current_thread().name = "Magnet movement wait"
         self.target(*self.args, **self.kwargs)
 
 class LightColor(Enum):
@@ -172,7 +174,7 @@ class LinearStageControlGUI(QGroupBox):
             self.update_pos()
             # self.change_ramp_type(self.softRampChk.isChecked())
             self._shown = True
-            return True
+            # return True
         
     def initialize(self):
         """ Create control instance and check for status """
