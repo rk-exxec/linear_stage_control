@@ -130,7 +130,14 @@ class LinearStageControlGUI(QGroupBox):
         self.wait_movement_thread = CallbackWorker(self.wait_movement, slotOnFinished=self.finished_moving)
         self.update_pos_timer = CustomCallbackTimer(self.update_pos, 250)
         if not hasattr(self, "_ls_ctl_settings"): # derived classes may override this
-            self._ls_ctl_settings= dict(portname='auto', reference='near', com_timeout=0.2)
+            self._ls_ctl_settings= dict(
+                portname='auto', 
+                reference='near', 
+                com_timeout=0.2,
+                axis_len=39.06,
+                fullsteps_per_turn=200,
+                mm_per_turn=1.25
+            )
         self.ls_ctl: LinearStageControl = None
         self.initialize()
         self.logger.debug("initialized stage control")
