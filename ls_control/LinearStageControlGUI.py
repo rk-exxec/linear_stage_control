@@ -263,13 +263,13 @@ class LinearStageControlGUI(QGroupBox):
         self._mov_unit = unit.strip()
         old_val = self.posSpinBox.value()
         if unit == 'mm':
-            self.posSlider.setMaximum(3906) #max mm are 39.0625
+            self.posSlider.setMaximum(self.ls_ctl._axis_len*100) #max mm are 39.0625
             self.posSlider.setTickInterval(100)
             self.posSpinBox.setDecimals(2)
             if self._old_unit == 'steps':
                 self.posSpinBox.setValue(self.ls_ctl.steps_to_mm(old_val))
         elif unit == 'steps':
-            self.posSlider.setMaximum(50000)
+            self.posSlider.setMaximum(self.ls_ctl._axis_len_steps)
             self.posSlider.setTickInterval(1000)
             self.posSpinBox.setDecimals(0)
             if self._old_unit == 'mm':
