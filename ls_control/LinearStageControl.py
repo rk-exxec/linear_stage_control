@@ -42,7 +42,7 @@ class LinearStageControl(object):
     :param reference: Which limit switch will be used for referencing the motor, far means away from motor, near means near, coordinates are positive away from reference
     :param com_timeout: Timeout in sek for serial port
     """
-    def __init__(self, portname:str='auto', reference:str='near', com_timeout:float=0.2):
+    def __init__(self, portname:str='auto', reference:str='near', com_timeout:float=0.2, axis_len=50000, mm_per_turn=1.25, fullsteps_per_turn = 200):
         self.logger = logging.getLogger()
         signal.signal(signal.SIGINT, self.sig_handler)
         signal.signal(signal.SIGTERM, self.sig_handler)
@@ -71,9 +71,16 @@ class LinearStageControl(object):
         self._killswitch_wait = False
         # self._wait_mov_fin_thread = threading.Thread(target=self.wait_movement)
         self._is_querying = False
+        self._axis_len = axis_len
+        self._mm_per_turn = mm_per_turn
+        self._fullsteps_per_turn = fullsteps_per_turn
         # self.setup_defaults()
         # if not self.is_referenced():
         #     print('Referencing is required!')
+
+    @property
+    def _axis_len_steps(self):
+       self.mm_to_steps(self._axis_len)
 
     def __enter__(self):
         """ Enter context manager """
@@ -352,8 +359,8 @@ class LinearStageControl(object):
         :param steps: The number of steps
         :returns: The distance in millimeters
         """
-        steps_per_turn = self._substeps * 200
-        return (1.25/steps_per_turn) * steps
+        steps_per_turn = self._substeps * self._fullsteps_per_turn
+        return (self._mm_per_turn/steps_per_turn) * steps
 
     def mm_to_steps(self, mm):
         """
@@ -362,8 +369,8 @@ class LinearStageControl(object):
         :param mm: The distance in millimeters
         :returns: The number of steps
         """
-        steps_per_turn = self._substeps * 200
-        return int(round(Decimal((steps_per_turn/1.25) * mm)))
+        steps_per_turn = self._substeps * self._fullsteps_per_turn
+        return int(round(Decimal((steps_per_turn/self._mm_per_turn) * mm)))
 
     def wait_movement(self):
         """
@@ -423,12 +430,12 @@ class LinearStageControl(object):
     def move_relative(self, steps, speed=4000):
         """Move the Stage relative to its current position.
 
-        :param steps: number of steps to travel, max 50000
+        :param steps: number of steps to travel, max self._axis_len_steps
             steps < 0: Movement towards reference
             steps > 0: Movemento away from reference
         :param speed: Speed in steps/s (max 16000)
         """
-        if abs(steps) > 50000:
+        if abs(steps) > self._axis_len_steps:
             self.logger.error("lt_control: Relative Movement: Out of range!")
             return
         if self._reference_point == 'far':
@@ -443,17 +450,17 @@ class LinearStageControl(object):
     def move_absolute(self, steps, speed=4000):
         """Move the Stage to absolute position, 0 is opposite of motor.
 
-        :param steps: Absolute position between 0 and 50000
+        :param steps: Absolute position between 0 and self._axis_len_steps
         :param speed: Speed in steps/s
         """
         if not self.is_referenced():
             self.logger.error("lt_control: move_absolute(): not referenced!")
             return
-        if abs(steps) > 50000:
+        if abs(steps) > self._axis_len_steps:
             self.logger.error('lt_control: Absolute Movement: Out of range!')
             return
         if not self._reference_point == 'far':
-            steps = steps - 50000
+            steps = steps - self._axis_len_steps
         self.command('#1p2')
         self.command('#1o' + str(int(speed)))
         self.command('#1s' + str(int(steps)))
@@ -505,7 +512,7 @@ class LinearStageControl(object):
             if self._reference_point == 'far':
                 disp_pos = real_pos
             else:
-                disp_pos = real_pos + 50000
+                disp_pos = real_pos + self._axis_len_steps
             return disp_pos
         except (TypeError, ValueError) as ex:
             self.logger.error(f"Position Query error: {ans=}\n{str(ex)}", exc_info=ex)
