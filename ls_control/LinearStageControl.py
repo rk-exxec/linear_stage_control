@@ -42,7 +42,7 @@ class LinearStageControl(object):
     :param reference: Which limit switch will be used for referencing the motor, far means away from motor, near means near, coordinates are positive away from reference
     :param com_timeout: Timeout in sek for serial port
     """
-    def __init__(self, portname='auto', reference='near', com_timeout=0.2):
+    def __init__(self, portname:str='auto', reference:str='near', com_timeout:float=0.2):
         self.logger = logging.getLogger()
         signal.signal(signal.SIGINT, self.sig_handler)
         signal.signal(signal.SIGTERM, self.sig_handler)
