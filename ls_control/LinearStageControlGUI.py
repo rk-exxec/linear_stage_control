@@ -187,6 +187,7 @@ class LinearStageControlGUI(QGroupBox):
         
     def initialize(self):
         """ Create control instance and check for status """
+        self.logger.debug("Initializing Motor Control.")
         if self.ls_ctl is not None: 
             self.ls_ctl.close_port()
             del self.ls_ctl
