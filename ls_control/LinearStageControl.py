@@ -194,7 +194,7 @@ class LinearStageControl(object):
 
     def sig_handler(self, sig, fr):
         self.stop()
-        self.logger.warning('Keyboard interrupt: motor stopped!')
+        print('Keyboard Interrupt: Motor stopped!')
 
     # def close(self):
     #     self._serial_port.close()
